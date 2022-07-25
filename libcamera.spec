@@ -110,9 +110,9 @@ export CFLAGS="%{optflags} -Wno-deprecated-declarations"
 export CXXFLAGS="%{optflags} -Wno-deprecated-declarations"
 
 %if 0%{?rhel} > 8 || 0%{?fedora}
-%meson -Dv4l2=true --wrap-mode=nofallback -Dpycamera=enable
+%meson -Dv4l2=true --wrap-mode=nofallback -Dpycamera=enabled
 %else
-%meson -Dv4l2=true -Dtracing=disabled -Dlc-compliance=disabled --wrap-mode=nofallback -Dpycamera=enable
+%meson -Dv4l2=true -Dtracing=disabled -Dlc-compliance=disabled --wrap-mode=nofallback -Dpycamera=enabled
 %endif
 %meson_build
 
