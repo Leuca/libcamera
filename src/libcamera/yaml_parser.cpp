@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <errno.h>
 #include <functional>
+#include <limits>
 
 #include <libcamera/base/file.h>
 #include <libcamera/base/log.h>
@@ -138,6 +139,67 @@ bool YamlObject::get(const bool &defaultValue, bool *ok) const
 }
 
 template<>
+int16_t YamlObject::get(const int16_t &defaultValue, bool *ok) const
+{
+	setOk(ok, false);
+
+	if (type_ != Type::Value)
+		return defaultValue;
+
+	if (value_ == "")
+		return defaultValue;
+
+	char *end;
+
+	errno = 0;
+	int16_t value = std::strtol(value_.c_str(), &end, 10);
+
+	if ('\0' != *end || errno == ERANGE ||
+	    value < std::numeric_limits<int16_t>::min() ||
+	    value > std::numeric_limits<int16_t>::max())
+		return defaultValue;
+
+	setOk(ok, true);
+	return value;
+}
+
+template<>
+uint16_t YamlObject::get(const uint16_t &defaultValue, bool *ok) const
+{
+	setOk(ok, false);
+
+	if (type_ != Type::Value)
+		return defaultValue;
+
+	if (value_ == "")
+		return defaultValue;
+
+	/*
+	 * libyaml parses all scalar values as strings. When a string has
+	 * leading spaces before a minus sign, for example "  -10", strtoul
+	 * skips leading spaces, accepts the leading minus sign, and the
+	 * calculated digits are negated as if by unary minus. Rule it out in
+	 * case the user gets a large number when the value is negative.
+	 */
+	std::size_t found = value_.find_first_not_of(" \t");
+	if (found != std::string::npos && value_[found] == '-')
+		return defaultValue;
+
+	char *end;
+
+	errno = 0;
+	uint16_t value = std::strtoul(value_.c_str(), &end, 10);
+
+	if ('\0' != *end || errno == ERANGE ||
+	    value < std::numeric_limits<uint16_t>::min() ||
+	    value > std::numeric_limits<uint16_t>::max())
+		return defaultValue;
+
+	setOk(ok, true);
+	return value;
+}
+
+template<>
 int32_t YamlObject::get(const int32_t &defaultValue, bool *ok) const
 {
 	setOk(ok, false);
@@ -151,9 +213,11 @@ int32_t YamlObject::get(const int32_t &defaultValue, bool *ok) const
 	char *end;
 
 	errno = 0;
-	int32_t value = std::strtol(value_.c_str(), &end, 10);
+	long value = std::strtol(value_.c_str(), &end, 10);
 
-	if ('\0' != *end || errno == ERANGE)
+	if ('\0' != *end || errno == ERANGE ||
+	    value < std::numeric_limits<int32_t>::min() ||
+	    value > std::numeric_limits<int32_t>::max())
 		return defaultValue;
 
 	setOk(ok, true);
@@ -185,9 +249,11 @@ uint32_t YamlObject::get(const uint32_t &defaultValue, bool *ok) const
 	char *end;
 
 	errno = 0;
-	uint32_t value = std::strtoul(value_.c_str(), &end, 10);
+	unsigned long value = std::strtoul(value_.c_str(), &end, 10);
 
-	if ('\0' != *end || errno == ERANGE)
+	if ('\0' != *end || errno == ERANGE ||
+	    value < std::numeric_limits<uint32_t>::min() ||
+	    value > std::numeric_limits<uint32_t>::max())
 		return defaultValue;
 
 	setOk(ok, true);
@@ -260,6 +326,45 @@ Size YamlObject::get(const Size &defaultValue, bool *ok) const
 #endif /* __DOXYGEN__ */
 
 /**
+ * \fn YamlObject::asDict() const
+ * \brief Wrap a dictionary YamlObject in an adapter that exposes iterators
+ *
+ * The YamlObject class doesn't directly implement iterators, as the iterator
+ * type depends on whether the object is a Dictionary or List. This function
+ * wraps a YamlObject of Dictionary type into an adapter that exposes
+ * iterators, as well as begin() and end() functions, allowing usage of
+ * range-based for loops with YamlObject. As YAML mappings are not ordered, the
+ * iteration order is not specified.
+ *
+ * The iterator's value_type is a
+ * <em>std::pair<const std::string &, const \ref YamlObject &></em>.
+ *
+ * If the YamlObject is not of Dictionary type, the returned adapter operates
+ * as an empty container.
+ *
+ * \return An adapter of unspecified type compatible with range-based for loops
+ */
+
+/**
+ * \fn YamlObject::asList() const
+ * \brief Wrap a list YamlObject in an adapter that exposes iterators
+ *
+ * The YamlObject class doesn't directly implement iterators, as the iterator
+ * type depends on whether the object is a Dictionary or List. This function
+ * wraps a YamlObject of List type into an adapter that exposes iterators, as
+ * well as begin() and end() functions, allowing usage of range-based for loops
+ * with YamlObject. As YAML lists are ordered, the iteration order is identical
+ * to the list order in the YAML data.
+ *
+ * The iterator's value_type is a <em>const YamlObject &</em>.
+ *
+ * If the YamlObject is not of List type, the returned adapter operates as an
+ * empty container.
+ *
+ * \return An adapter of unspecified type compatible with range-based for loops
+ */
+
+/**
  * \fn YamlObject::operator[](std::size_t index) const
  * \brief Retrieve the element from list YamlObject by index
  *
@@ -294,28 +399,6 @@ bool YamlObject::contains(const std::string &key) const
 		return false;
 
 	return true;
-}
-
-/**
- * \fn YamlObject::memberNames()
- * \brief Retrieve all member names of the dictionary
- *
- * This function retrieve member names of a YamlObject. Only YamlObject
- * instances of Dictionary type associate elements with names, calling this
- * function on other types of instances is invalid and results in undefined
- * behaviour.
- *
- * \todo Replace this function with an iterator-based API
- *
- * \return A vector of string as the member names
- */
-std::vector<std::string> YamlObject::memberNames() const
-{
-	std::vector<std::string> memberNames;
-	for (auto &[key, _] : dictionary_)
-		memberNames.push_back(key);
-
-	return memberNames;
 }
 
 /**
