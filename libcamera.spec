@@ -1,30 +1,30 @@
 %define debug_package %{nil}
-Name:       {{{ git_dir_name }}}
-Version:    {{{ git_dir_version }}}
-Release:    1%{?dist}
-Summary:    A library to support complex camera ISPs
+Name:           {{{ git_dir_name }}}
+Version:        {{{ git_dir_version }}}
+Release:        1%{?dist}
+Summary:        A library to support complex camera ISPs
 
-License:    LGPLv2+ and GPLv2
-URL:        https://www.libcamera.org/
+License:        LGPLv2+ and GPLv2
+URL:            https://www.libcamera.org/
 
-VCS:        {{{ git_dir_vcs }}}
+VCS:            {{{ git_dir_vcs }}}
 
-BuildRequires: git gcc-c++ meson ninja-build python3-pkgconfig libyaml-devel python3-pyyaml python3-ply python3-jinja2 python3-devel gtest-devel
-BuildRequires: gnutls-devel openssl
-BuildRequires: boost-devel
-buildRequires: systemd-devel
-BuildRequires: python3-sphinx doxygen graphviz texlive-latex texlive-latex2man texlive-latexconfig 
-BuildRequires: gstreamer1-devel gstreamer1-plugins-base-devel libevent-devel
-BuildRequires: pkgconfig(Qt5Core)
-BuildRequires: pkgconfig(Qt5Gui)
-BuildRequires: pkgconfig(Qt5Widgets)
-BuildRequires: desktop-file-utils
+BuildRequires:  git gcc-c++ meson ninja-build python3-pkgconfig libyaml-devel python3-pyyaml python3-ply python3-jinja2 python3-devel gtest-devel
+BuildRequires:  gnutls-devel openssl
+BuildRequires:  boost-devel
+buildRequires:  systemd-devel
+BuildRequires:  python3-sphinx doxygen graphviz texlive-latex texlive-latex2man texlive-latexconfig 
+BuildRequires:  gstreamer1-devel gstreamer1-plugins-base-devel libevent-devel
+BuildRequires:  pkgconfig(Qt5Core)
+BuildRequires:  pkgconfig(Qt5Gui)
+BuildRequires:  pkgconfig(Qt5Widgets)
+BuildRequires:  desktop-file-utils
 %if 0%{?rhel} > 8 || 0%{?fedora}
-BuildRequires: lttng-ust-devel
+BuildRequires:  lttng-ust-devel
 %endif
-BuildRequires: libtiff-devel
+BuildRequires:  libtiff-devel
 
-Source:     {{{ git_dir_pack }}}
+Source:         {{{ git_dir_pack }}}
 
 %description
 libcamera is a library that deals with heavy hardware image processing
@@ -35,69 +35,69 @@ complex camera hardware such as ISPs.
 Hardware support includes USB UVC cameras, libv4l cameras as well as more
 complex ISPs (Image Signal Processor).
 
-%package	devel
-Summary:	Development package for %{name}
-Requires:	%{name}%{?_isa} = %{version}-%{release}
+%package        devel
+Summary:        Development package for %{name}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
 
-%description	devel
+%description    devel
 Files for development with %{name}.
 
-%package	doc
-Summary:	Documentation for %{name}
-BuildArch:	noarch
+%package        doc
+Summary:        Documentation for %{name}
+BuildArch:      noarch
 
-%description	doc
+%description    doc
 HTML based documentation for %{name} including getting started and API.
 
-%package -n	python3-libcamera
-Summary:	Python bindings for libcamera
-Requires:	%{name}%{?_isa} = %{version}-%{release} 
+%package        -n python3-libcamera
+Summary:        Python bindings for libcamera
+Requires:       %{name}%{?_isa} = %{version}-%{release} 
 
-%description -n	python3-libcamera
+%description    -n python3-libcamera
 Python bindings needed to take advantage of the libcamera libraries
 
-	
-%package	ipa
-Summary:	ISP Image Processing Algorithm Plugins for %{name}
-Requires:	%{name}%{?_isa} = %{version}-%{release}
+    
+%package        ipa
+Summary:        ISP Image Processing Algorithm Plugins for %{name}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
  
-%description	ipa
+%description    ipa
 Image Processing Algorithms plugins for interfacing with device
 ISPs for %{name}
  
-%package	tools
-Summary:	Tools for %{name}
-Requires:	%{name}%{?_isa} = %{version}-%{release}
+%package        tools
+Summary:        Tools for %{name}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
  
-%description	tools
+%description    tools
 Command line tools for %{name}
  
-%package	qcam
-Summary:	Graphical QCam application for %{name}
-Requires:	%{name}%{?_isa} = %{version}-%{release}
+%package        qcam
+Summary:        Graphical QCam application for %{name}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
  
-%description	qcam
+%description    qcam
 Graphical QCam application for %{name}
  
-%package	gstreamer
-Summary:	GSTreamer plugin for %{name}
-Requires:	%{name}%{?_isa} = %{version}-%{release}
+%package        gstreamer
+Summary:        GSTreamer plugin for %{name}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
  
-%description	gstreamer
+%description    gstreamer
 GSTreamer plugins for %{name}
 
-%package	v4l2
-Summary:	V4L2 compatibility layer plugin for %{name}
-Requires:	%{name}%{?_isa} = %{version}-%{release}
+%package        v4l2
+Summary:        V4L2 compatibility layer plugin for %{name}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
 
-%description	v4l2
+%description    v4l2
 libcamera wrapper library that provies supprot for traditional v4l2 applications
 
-%package	v4l2-libcamerify
-Summary:	Tool for %{name}-v4l2
-Requires:	%{name}-v4l2%{?_isa} = %{version}-%{release}
+%package        v4l2-libcamerify
+Summary:        Tool for %{name}-v4l2
+Requires:       %{name}-v4l2%{?_isa} = %{version}-%{release}
 
-%description	v4l2-libcamerify
+%description    v4l2-libcamerify
 Tool that simplifies the usage of the libcamera v4l2 compatibility layer
 
 %prep
@@ -110,9 +110,9 @@ export CFLAGS="%{optflags} -Wno-deprecated-declarations"
 export CXXFLAGS="%{optflags} -Wno-deprecated-declarations"
 
 %if 0%{?rhel} > 8 || 0%{?fedora}
-%meson -Dv4l2=true --wrap-mode=nofallback
+%meson -Dv4l2=true --wrap-mode=nofallback -Dpycamera=enable
 %else
-%meson -Dv4l2=true -Dtracing=disabled -Dlc-compliance=disabled --wrap-mode=nofallback
+%meson -Dv4l2=true -Dtracing=disabled -Dlc-compliance=disabled --wrap-mode=nofallback -Dpycamera=enable
 %endif
 %meson_build
 
@@ -150,7 +150,7 @@ rm -rf ${RPM_BUILD_ROOT}/%{_docdir}/%{name}-*/html/.doctrees
 %{_datadir}/libcamera/
 %{_libdir}/libcamera/
 %{_libexecdir}/libcamera/
-	
+    
 %files gstreamer
 %{_libdir}/gstreamer-1.0/libgstlibcamera.so
 
