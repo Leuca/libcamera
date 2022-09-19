@@ -1,6 +1,5 @@
-%define debug_package %{nil}
 Name:           {{{ git_dir_name }}}
-Version:        {{{ git_dir_version }}}
+Version:        {{{ git_dir_version lead=0.0 follow=0 }}}
 Release:        1%{?dist}
 Summary:        A library to support complex camera ISPs
 
@@ -9,20 +8,38 @@ URL:            https://www.libcamera.org/
 
 VCS:            {{{ git_dir_vcs }}}
 
-BuildRequires:  git gcc-c++ meson ninja-build python3-pkgconfig libyaml-devel python3-pyyaml python3-ply python3-jinja2 python3-devel gtest-devel
-BuildRequires:  gnutls-devel openssl
+BuildRequires:  git
+BuildRequires:  doxygen
+BuildRequires:  gcc-c++
+BuildRequires:  gtest-devel
+BuildRequires:  desktop-file-utils
+BuildRequires:  meson
+BuildRequires:  openssl
+BuildRequires:  ninja-build
+BuildRequires:  python3-jinja2
+BuildRequires:  python3-ply
+BuildRequires:  python3-pyyaml
+BuildRequires:  python3-sphinx
+BuildRequires:  python3-pkgconfig
+BuildRequires:  python3-devel
 BuildRequires:  boost-devel
-buildRequires:  systemd-devel
-BuildRequires:  python3-sphinx doxygen graphviz texlive-latex texlive-latex2man texlive-latexconfig 
-BuildRequires:  gstreamer1-devel gstreamer1-plugins-base-devel libevent-devel
+BuildRequires:  pkgconfig(glib-2.0)
+BuildRequires:  gnutls-devel
+BuildRequires:  libatomic
+BuildRequires:  libevent-devel
+BuildRequires:  libtiff-devel
+BuildRequires:  libyaml-devel
+BuildRequires:  lttng-ust-devel
+BuildRequires:  systemd-devel
+BuildRequires:  graphviz
+BuildRequires:  texlive-latex
+BuildRequires:  texlive-latex2man
+BuildRequires:  texlive-latexconfig 
+BuildRequires:  gstreamer1-plugins-base-devel
+BuildRequires:  gstreamer1-devel
 BuildRequires:  pkgconfig(Qt5Core)
 BuildRequires:  pkgconfig(Qt5Gui)
 BuildRequires:  pkgconfig(Qt5Widgets)
-BuildRequires:  desktop-file-utils
-%if 0%{?rhel} > 8 || 0%{?fedora}
-BuildRequires:  lttng-ust-devel
-%endif
-BuildRequires:  libtiff-devel
 
 Source:         {{{ git_dir_pack }}}
 
@@ -174,7 +191,3 @@ rm -rf ${RPM_BUILD_ROOT}/%{_docdir}/%{name}-*/html/.doctrees
 
 %files v4l2-libcamerify
 %{_bindir}/libcamerify
-
-%post -p /sbin/ldconfig
-
-%postun -p /sbin/ldconfig
