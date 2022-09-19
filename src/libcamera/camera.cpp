@@ -184,12 +184,12 @@ void CameraConfiguration::addConfiguration(const StreamConfiguration &cfg)
  * This function adjusts the camera configuration to the closest valid
  * configuration and returns the validation status.
  *
- * \todo: Define exactly when to return each status code. Should stream
+ * \todo Define exactly when to return each status code. Should stream
  * parameters set to 0 by the caller be adjusted without returning Adjusted ?
  * This would potentially be useful for applications but would get in the way
  * in Camera::configure(). Do we need an extra status code to signal this ?
  *
- * \todo: Handle validation of buffers count when refactoring the buffers API.
+ * \todo Handle validation of buffers count when refactoring the buffers API.
  *
  * \return A CameraConfiguration::Status value that describes the validation
  * status.
@@ -358,8 +358,8 @@ bool isRaw(const PixelFormat &pixFmt)
  * \return A CameraConfiguration::Status value that describes the validation
  * status.
  * \retval CameraConfigutation::Adjusted The configuration has been adjusted
- * and is now valid. The color space of some or all of the streams may bave
- * benn changed. The caller shall check the color spaces carefully.
+ * and is now valid. The color space of some or all of the streams may have
+ * been changed. The caller shall check the color spaces carefully.
  * \retval CameraConfiguration::Valid The configuration was already valid and
  * hasn't been adjusted.
  */
@@ -497,7 +497,7 @@ Camera::Private::~Private()
  * facilitate debugging of internal request usage.
  *
  * The requestSequence_ tracks the number of requests queued to a camera
- * over its lifetime.
+ * over a single capture session.
  */
 
 static const char *const camera_state_names[] = {
@@ -507,6 +507,11 @@ static const char *const camera_state_names[] = {
 	"Stopping",
 	"Running",
 };
+
+bool Camera::Private::isAcquired() const
+{
+	return state_.load(std::memory_order_acquire) == CameraRunning;
+}
 
 bool Camera::Private::isRunning() const
 {
@@ -811,7 +816,7 @@ int Camera::exportFrameBuffers(Stream *stream,
  * not blocking, if the device has already been acquired (by the same or another
  * process) the -EBUSY error code is returned.
  *
- * Acquiring a camera will limit usage of any other camera(s) provided by the
+ * Acquiring a camera may limit usage of any other camera(s) provided by the
  * same pipeline handler to the same instance of libcamera. The limit is in
  * effect until all cameras from the pipeline handler are released. Other
  * instances of libcamera can still list and examine the cameras but will fail
@@ -839,7 +844,7 @@ int Camera::acquire()
 	if (ret < 0)
 		return ret == -EACCES ? -EBUSY : ret;
 
-	if (!d->pipe_->lock()) {
+	if (!d->pipe_->acquire()) {
 		LOG(Camera, Info)
 			<< "Pipeline handler in use by another process";
 		return -EBUSY;
@@ -873,7 +878,8 @@ int Camera::release()
 	if (ret < 0)
 		return ret == -EACCES ? -EBUSY : ret;
 
-	d->pipe_->unlock();
+	if (d->isAcquired())
+		d->pipe_->release();
 
 	d->setState(Private::CameraAvailable);
 
@@ -1180,6 +1186,8 @@ int Camera::start(const ControlList *controls)
 		return ret;
 
 	LOG(Camera, Debug) << "Starting capture";
+
+	ASSERT(d->requestSequence_ == 0);
 
 	ret = d->pipe_->invokeMethod(&PipelineHandler::start,
 				     ConnectionTypeBlocking, this, controls);

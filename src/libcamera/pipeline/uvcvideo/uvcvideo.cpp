@@ -149,7 +149,7 @@ CameraConfiguration::Status UVCCameraConfiguration::validate()
 	cfg.bufferCount = 4;
 
 	V4L2DeviceFormat format;
-	format.fourcc = V4L2PixelFormat::fromPixelFormat(cfg.pixelFormat);
+	format.fourcc = data_->video_->toV4L2PixelFormat(cfg.pixelFormat);
 	format.size = cfg.size;
 
 	int ret = data_->video_->tryFormat(&format);
@@ -205,7 +205,7 @@ int PipelineHandlerUVC::configure(Camera *camera, CameraConfiguration *config)
 	int ret;
 
 	V4L2DeviceFormat format;
-	format.fourcc = V4L2PixelFormat::fromPixelFormat(cfg.pixelFormat);
+	format.fourcc = data->video_->toV4L2PixelFormat(cfg.pixelFormat);
 	format.size = cfg.size;
 
 	ret = data->video_->setFormat(&format);
@@ -213,7 +213,7 @@ int PipelineHandlerUVC::configure(Camera *camera, CameraConfiguration *config)
 		return ret;
 
 	if (format.size != cfg.size ||
-	    format.fourcc != V4L2PixelFormat::fromPixelFormat(cfg.pixelFormat))
+	    format.fourcc != data->video_->toV4L2PixelFormat(cfg.pixelFormat))
 		return -EINVAL;
 
 	cfg.setStream(&data->stream_);
@@ -340,12 +340,8 @@ int PipelineHandlerUVC::processControls(UVCCameraData *data, Request *request)
 {
 	ControlList controls(data->video_->controls());
 
-	for (auto it : request->controls()) {
-		unsigned int id = it.first;
-		ControlValue &value = it.second;
-
+	for (const auto &[id, value] : request->controls())
 		processControl(&controls, id, value);
-	}
 
 	for (const auto &ctrl : controls)
 		LOG(UVC, Debug)

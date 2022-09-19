@@ -9,9 +9,9 @@
 
 #include <iostream>
 
-SDLTexture::SDLTexture(const SDL_Rect &rect, SDL_PixelFormatEnum pixelFormat,
-		       const int pitch)
-	: ptr_(nullptr), rect_(rect), pixelFormat_(pixelFormat), pitch_(pitch)
+SDLTexture::SDLTexture(const SDL_Rect &rect, uint32_t pixelFormat,
+		       const int stride)
+	: ptr_(nullptr), rect_(rect), pixelFormat_(pixelFormat), stride_(stride)
 {
 }
 

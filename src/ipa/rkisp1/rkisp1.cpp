@@ -27,10 +27,7 @@
 #include "libcamera/internal/mapped_framebuffer.h"
 #include "libcamera/internal/yaml_parser.h"
 
-#include "algorithms/agc.h"
 #include "algorithms/algorithm.h"
-#include "algorithms/awb.h"
-#include "algorithms/blc.h"
 #include "libipa/camera_sensor_helper.h"
 
 #include "ipa_context.h"
@@ -46,7 +43,8 @@ namespace ipa::rkisp1 {
 class IPARkISP1 : public IPARkISP1Interface, public Module
 {
 public:
-	int init(const IPASettings &settings, unsigned int hwRevision) override;
+	int init(const IPASettings &settings, unsigned int hwRevision,
+		 ControlInfoMap *ipaControls) override;
 	int start() override;
 	void stop() override {}
 
@@ -89,12 +87,29 @@ private:
 	struct IPAContext context_;
 };
 
+namespace {
+
+/* List of controls handled by the RkISP1 IPA */
+const ControlInfoMap::Map rkisp1Controls{
+	{ &controls::AeEnable, ControlInfo(false, true) },
+	{ &controls::AwbEnable, ControlInfo(false, true) },
+	{ &controls::ColourGains, ControlInfo(0.0f, 3.996f, 1.0f) },
+	{ &controls::Brightness, ControlInfo(-1.0f, 0.993f) },
+	{ &controls::Contrast, ControlInfo(0.0f, 1.993f) },
+	{ &controls::Saturation, ControlInfo(0.0f, 1.993f) },
+	{ &controls::Sharpness, ControlInfo(0.0f, 10.0f, 1.0f) },
+	{ &controls::draft::NoiseReductionMode, ControlInfo(controls::draft::NoiseReductionModeValues) },
+};
+
+} /* namespace */
+
 std::string IPARkISP1::logPrefix() const
 {
 	return "rkisp1";
 }
 
-int IPARkISP1::init(const IPASettings &settings, unsigned int hwRevision)
+int IPARkISP1::init(const IPASettings &settings, unsigned int hwRevision,
+		    ControlInfoMap *ipaControls)
 {
 	/* \todo Add support for other revisions */
 	switch (hwRevision) {
@@ -155,7 +170,15 @@ int IPARkISP1::init(const IPASettings &settings, unsigned int hwRevision)
 		return -EINVAL;
 	}
 
-	return createAlgorithms(context_, (*data)["algorithms"]);
+	int ret = createAlgorithms(context_, (*data)["algorithms"]);
+	if (ret)
+		return ret;
+
+	/* Return the controls handled by the IPA. */
+	ControlInfoMap::Map ctrlMap = rkisp1Controls;
+	*ipaControls = ControlInfoMap(std::move(ctrlMap), controls::controls);
+
+	return 0;
 }
 
 int IPARkISP1::start()
@@ -210,6 +233,7 @@ int IPARkISP1::configure([[maybe_unused]] const IPACameraSensorInfo &info,
 	/* Set the hardware revision for the algorithms. */
 	context_.configuration.hw.revision = hwRevision_;
 
+	context_.configuration.sensor.size = info.outputSize;
 	context_.configuration.sensor.lineDuration = info.lineLength * 1.0s / info.pixelRate;
 
 	/*
@@ -265,10 +289,10 @@ void IPARkISP1::unmapBuffers(const std::vector<unsigned int> &ids)
 	}
 }
 
-void IPARkISP1::queueRequest([[maybe_unused]] const uint32_t frame,
-			     [[maybe_unused]] const ControlList &controls)
+void IPARkISP1::queueRequest(const uint32_t frame, const ControlList &controls)
 {
-	/* \todo Start processing for 'frame' based on 'controls'. */
+	for (auto const &algo : algorithms())
+		algo->queueRequest(context_, frame, controls);
 }
 
 void IPARkISP1::fillParamsBuffer(const uint32_t frame, const uint32_t bufferId)

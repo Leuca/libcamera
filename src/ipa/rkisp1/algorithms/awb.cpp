@@ -12,6 +12,7 @@
 
 #include <libcamera/base/log.h>
 
+#include <libcamera/control_ids.h>
 #include <libcamera/ipa/core_ipa_interface.h>
 
 /**
@@ -38,6 +39,7 @@ int Awb::configure(IPAContext &context,
 	context.frameContext.awb.gains.red = 1.0;
 	context.frameContext.awb.gains.blue = 1.0;
 	context.frameContext.awb.gains.green = 1.0;
+	context.frameContext.awb.autoEnabled = true;
 
 	/*
 	 * Define the measurement window for AWB as a centered rectangle
@@ -47,6 +49,8 @@ int Awb::configure(IPAContext &context,
 	context.configuration.awb.measureWindow.v_offs = configInfo.outputSize.height / 8;
 	context.configuration.awb.measureWindow.h_size = 3 * configInfo.outputSize.width / 4;
 	context.configuration.awb.measureWindow.v_size = 3 * configInfo.outputSize.height / 4;
+
+	context.configuration.awb.enabled = true;
 
 	return 0;
 }
@@ -117,6 +121,34 @@ void Awb::prepare(IPAContext &context, rkisp1_params_cfg *params)
 }
 
 /**
+ * \copydoc libcamera::ipa::Algorithm::queueRequest
+ */
+void Awb::queueRequest(IPAContext &context,
+		       [[maybe_unused]] const uint32_t frame,
+		       const ControlList &controls)
+{
+	auto &awb = context.frameContext.awb;
+
+	const auto &awbEnable = controls.get(controls::AwbEnable);
+	if (awbEnable && *awbEnable != awb.autoEnabled) {
+		awb.autoEnabled = *awbEnable;
+
+		LOG(RkISP1Awb, Debug)
+			<< (*awbEnable ? "Enabling" : "Disabling") << " AWB";
+	}
+
+	const auto &colourGains = controls.get(controls::ColourGains);
+	if (colourGains && !awb.autoEnabled) {
+		awb.gains.red = (*colourGains)[0];
+		awb.gains.blue = (*colourGains)[1];
+
+		LOG(RkISP1Awb, Debug)
+			<< "Set colour gains to red: " << awb.gains.red
+			<< ", blue: " << awb.gains.blue;
+	}
+}
+
+/**
  * \copydoc libcamera::ipa::Algorithm::process
  */
 void Awb::process([[maybe_unused]] IPAContext &context,
@@ -164,8 +196,10 @@ void Awb::process([[maybe_unused]] IPAContext &context,
 	 * Gain values are unsigned integer value, range 0 to 4 with 8 bit
 	 * fractional part.
 	 */
-	frameContext.awb.gains.red = std::clamp(redGain, 0.0, 1023.0 / 256);
-	frameContext.awb.gains.blue = std::clamp(blueGain, 0.0, 1023.0 / 256);
+	if (frameContext.awb.autoEnabled) {
+		frameContext.awb.gains.red = std::clamp(redGain, 0.0, 1023.0 / 256);
+		frameContext.awb.gains.blue = std::clamp(blueGain, 0.0, 1023.0 / 256);
+	}
 	/* Hardcode the green gain to 1.0. */
 	frameContext.awb.gains.green = 1.0;
 

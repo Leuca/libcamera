@@ -134,6 +134,30 @@ const std::map<uint32_t, V4L2SubdeviceFormatInfo> formatInfoMap = {
 } /* namespace */
 
 /**
+ * \struct V4L2SubdeviceCapability
+ * \brief struct v4l2_subdev_capability object wrapper and helpers
+ *
+ * The V4L2SubdeviceCapability structure manages the information returned by the
+ * VIDIOC_SUBDEV_QUERYCAP ioctl.
+ */
+
+/**
+ * \fn V4L2SubdeviceCapability::isReadOnly()
+ * \brief Retrieve if a subdevice is registered as read-only
+ *
+ * A V4L2 subdevice is registered as read-only if V4L2_SUBDEV_CAP_RO_SUBDEV
+ * is listed as part of its capabilities.
+ *
+ * \return True if the subdevice is registered as read-only, false otherwise
+ */
+
+/**
+ * \fn V4L2SubdeviceCapability::hasStreams()
+ * \brief Retrieve if a subdevice supports the V4L2 streams API
+ * \return True if the subdevice supports the streams API, false otherwise
+ */
+
+/**
  * \struct V4L2SubdeviceFormat
  * \brief The V4L2 sub-device image format and sizes
  *
@@ -265,6 +289,33 @@ std::ostream &operator<<(std::ostream &out, const V4L2SubdeviceFormat &f)
  */
 
 /**
+ * \class V4L2Subdevice::Routing
+ * \brief V4L2 subdevice routing table
+ *
+ * This class stores a subdevice routing table as a vector of routes.
+ */
+
+/**
+ * \brief Assemble and return a string describing the routing table
+ * \return A string describing the routing table
+ */
+std::string V4L2Subdevice::Routing::toString() const
+{
+	std::stringstream routing;
+
+	for (const auto &[i, route] : utils::enumerate(*this)) {
+		routing << "[" << i << "] "
+			<< route.sink_pad << "/" << route.sink_stream << " -> "
+			<< route.source_pad << "/" << route.source_stream
+			<< " (" << utils::hex(route.flags) << ")";
+		if (i != size() - 1)
+			routing << ", ";
+	}
+
+	return routing.str();
+}
+
+/**
  * \brief Create a V4L2 subdevice from a MediaEntity using its device node
  * path
  */
@@ -284,7 +335,25 @@ V4L2Subdevice::~V4L2Subdevice()
  */
 int V4L2Subdevice::open()
 {
-	return V4L2Device::open(O_RDWR);
+	int ret = V4L2Device::open(O_RDWR);
+	if (ret)
+		return ret;
+
+	/*
+	 * Try to query the subdev capabilities. The VIDIOC_SUBDEV_QUERYCAP API
+	 * was introduced in kernel v5.8, ENOTTY errors must be ignored to
+	 * support older kernels.
+	 */
+	caps_ = {};
+	ret = ioctl(VIDIOC_SUBDEV_QUERYCAP, &caps_);
+	if (ret < 0 && errno != ENOTTY) {
+		ret = -errno;
+		LOG(V4L2, Error)
+			<< "Unable to query capabilities: " << strerror(-ret);
+		return ret;
+	}
+
+	return 0;
 }
 
 /**
@@ -416,8 +485,7 @@ int V4L2Subdevice::getFormat(unsigned int pad, V4L2SubdeviceFormat *format,
 			     Whence whence)
 {
 	struct v4l2_subdev_format subdevFmt = {};
-	subdevFmt.which = whence == ActiveFormat ? V4L2_SUBDEV_FORMAT_ACTIVE
-			: V4L2_SUBDEV_FORMAT_TRY;
+	subdevFmt.which = whence;
 	subdevFmt.pad = pad;
 
 	int ret = ioctl(VIDIOC_SUBDEV_G_FMT, &subdevFmt);
@@ -452,14 +520,19 @@ int V4L2Subdevice::setFormat(unsigned int pad, V4L2SubdeviceFormat *format,
 			     Whence whence)
 {
 	struct v4l2_subdev_format subdevFmt = {};
-	subdevFmt.which = whence == ActiveFormat ? V4L2_SUBDEV_FORMAT_ACTIVE
-			: V4L2_SUBDEV_FORMAT_TRY;
+	subdevFmt.which = whence;
 	subdevFmt.pad = pad;
 	subdevFmt.format.width = format->size.width;
 	subdevFmt.format.height = format->size.height;
 	subdevFmt.format.code = format->mbus_code;
 	subdevFmt.format.field = V4L2_FIELD_NONE;
-	fromColorSpace(format->colorSpace, subdevFmt.format);
+	if (format->colorSpace) {
+		fromColorSpace(format->colorSpace, subdevFmt.format);
+
+		/* The CSC flag is only applicable to source pads. */
+		if (entity_->pads()[pad]->flags() & MEDIA_PAD_FL_SOURCE)
+			subdevFmt.format.flags |= V4L2_MBUS_FRAMEFMT_SET_CSC;
+	}
 
 	int ret = ioctl(VIDIOC_SUBDEV_S_FMT, &subdevFmt);
 	if (ret) {
@@ -473,6 +546,85 @@ int V4L2Subdevice::setFormat(unsigned int pad, V4L2SubdeviceFormat *format,
 	format->size.height = subdevFmt.format.height;
 	format->mbus_code = subdevFmt.format.code;
 	format->colorSpace = toColorSpace(subdevFmt.format);
+
+	return 0;
+}
+
+/**
+ * \brief Retrieve the subdevice's internal routing table
+ * \param[out] routing The routing table
+ * \param[in] whence The routing table to get, \ref V4L2Subdevice::ActiveFormat
+ * "ActiveFormat" or \ref V4L2Subdevice::TryFormat "TryFormat"
+ *
+ * \return 0 on success or a negative error code otherwise
+ */
+int V4L2Subdevice::getRouting(Routing *routing, Whence whence)
+{
+	if (!caps_.hasStreams())
+		return 0;
+
+	struct v4l2_subdev_routing rt = {};
+
+	rt.which = whence;
+
+	int ret = ioctl(VIDIOC_SUBDEV_G_ROUTING, &rt);
+	if (ret == 0 || ret == -ENOTTY)
+		return ret;
+
+	if (ret != -ENOSPC) {
+		LOG(V4L2, Error)
+			<< "Failed to retrieve number of routes: "
+			<< strerror(-ret);
+		return ret;
+	}
+
+	routing->resize(rt.num_routes);
+	rt.routes = reinterpret_cast<uintptr_t>(routing->data());
+
+	ret = ioctl(VIDIOC_SUBDEV_G_ROUTING, &rt);
+	if (ret) {
+		LOG(V4L2, Error)
+			<< "Failed to retrieve routes: " << strerror(-ret);
+		return ret;
+	}
+
+	if (rt.num_routes != routing->size()) {
+		LOG(V4L2, Error) << "Invalid number of routes";
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/**
+ * \brief Set a routing table on the V4L2 subdevice
+ * \param[inout] routing The routing table
+ * \param[in] whence The routing table to set, \ref V4L2Subdevice::ActiveFormat
+ * "ActiveFormat" or \ref V4L2Subdevice::TryFormat "TryFormat"
+ *
+ * Apply to the V4L2 subdevice the routing table \a routing and update its
+ * content to reflect the actually applied routing table as getRouting() would
+ * do.
+ *
+ * \return 0 on success or a negative error code otherwise
+ */
+int V4L2Subdevice::setRouting(Routing *routing, Whence whence)
+{
+	if (!caps_.hasStreams())
+		return 0;
+
+	struct v4l2_subdev_routing rt = {};
+	rt.which = whence;
+	rt.num_routes = routing->size();
+	rt.routes = reinterpret_cast<uintptr_t>(routing->data());
+
+	int ret = ioctl(VIDIOC_SUBDEV_S_ROUTING, &rt);
+	if (ret) {
+		LOG(V4L2, Error) << "Failed to set routes: " << strerror(-ret);
+		return ret;
+	}
+
+	routing->resize(rt.num_routes);
 
 	return 0;
 }
@@ -528,6 +680,12 @@ const std::string &V4L2Subdevice::model()
 
 	return model_;
 }
+
+/**
+ * \fn V4L2Subdevice::caps()
+ * \brief Retrieve the subdevice V4L2 capabilities
+ * \return The subdevice V4L2 capabilities
+ */
 
 /**
  * \brief Create a new video subdevice instance from \a entity in media device

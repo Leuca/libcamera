@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
- * Copyright (C) 2021, Raspberry Pi (Trading) Limited
+ * Copyright (C) 2021, Raspberry Pi Ltd
  *
  * color_space.h - color space definitions
  */
@@ -46,8 +46,8 @@ public:
 	}
 
 	static const ColorSpace Raw;
-	static const ColorSpace Jpeg;
 	static const ColorSpace Srgb;
+	static const ColorSpace Sycc;
 	static const ColorSpace Smpte170m;
 	static const ColorSpace Rec709;
 	static const ColorSpace Rec2020;
@@ -59,6 +59,8 @@ public:
 
 	std::string toString() const;
 	static std::string toString(const std::optional<ColorSpace> &colorSpace);
+
+	static std::optional<ColorSpace> fromString(const std::string &str);
 };
 
 bool operator==(const ColorSpace &lhs, const ColorSpace &rhs);

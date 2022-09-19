@@ -29,10 +29,16 @@ struct IPASessionConfiguration {
 
 	struct {
 		struct rkisp1_cif_isp_window measureWindow;
+		bool enabled;
 	} awb;
 
 	struct {
+		bool enabled;
+	} lsc;
+
+	struct {
 		utils::Duration lineDuration;
+		Size size;
 	} sensor;
 
 	struct {
@@ -54,7 +60,26 @@ struct IPAFrameContext {
 		} gains;
 
 		double temperatureK;
+		bool autoEnabled;
 	} awb;
+
+	struct {
+		int8_t brightness;
+		uint8_t contrast;
+		uint8_t saturation;
+		bool updateParams;
+	} cproc;
+
+	struct {
+		bool denoise;
+		bool updateParams;
+	} dpf;
+
+	struct {
+		uint8_t denoise;
+		uint8_t sharpness;
+		bool updateParams;
+	} filter;
 
 	struct {
 		uint32_t exposure;

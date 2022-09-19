@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
- * Copyright (C) 2021, Raspberry Pi (Trading) Limited
+ * Copyright (C) 2021, Raspberry Pi Ltd
  *
  * color_space.cpp - color spaces.
  */
@@ -12,6 +12,9 @@
 #include <map>
 #include <sstream>
 #include <utility>
+#include <vector>
+
+#include <libcamera/base/utils.h>
 
 /**
  * \file color_space.h
@@ -29,21 +32,28 @@ namespace libcamera {
  * (sometimes also referred to as the quantisation) of the color space.
  *
  * Certain combinations of these fields form well-known standard color
- * spaces such as "JPEG" or "REC709".
+ * spaces such as "sRGB" or "Rec709".
  *
  * In the strictest sense a "color space" formally only refers to the
  * color primaries and white point. Here, however, the ColorSpace class
  * adopts the common broader usage that includes the transfer function,
  * Y'CbCr encoding method and quantisation.
  *
- * For more information on the specific color spaces described here, please
- * see:
+ * More information on color spaces is available in the V4L2 documentation, see
+ * in particular
  *
  * - <a href="https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/colorspaces-details.html#col-srgb">sRGB</a>
  * - <a href="https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/colorspaces-details.html#col-jpeg">JPEG</a>
  * - <a href="https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/colorspaces-details.html#col-smpte-170m">SMPTE 170M</a>
  * - <a href="https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/colorspaces-details.html#col-rec709">Rec.709</a>
  * - <a href="https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/colorspaces-details.html#col-bt2020">Rec.2020</a>
+ *
+ * Note that there is no guarantee of a 1:1 mapping between color space names
+ * and definitions in libcamera and V4L2. A notable difference is that the sYCC
+ * libcamera color space is called JPEG in V4L2 due to historical reasons.
+ *
+ * \todo Define the color space fully in the libcamera API to avoid referencing
+ * V4L2
  */
 
 /**
@@ -118,11 +128,133 @@ namespace libcamera {
  */
 
 /**
+ * \brief A constant representing a raw color space (from a sensor)
+ */
+const ColorSpace ColorSpace::Raw = {
+	Primaries::Raw,
+	TransferFunction::Linear,
+	YcbcrEncoding::None,
+	Range::Full
+};
+
+/**
+ * \brief A constant representing the sRGB color space
+ *
+ * This is identical to the sYCC color space except that the Y'CbCr
+ * range is limited rather than full.
+ */
+const ColorSpace ColorSpace::Srgb = {
+	Primaries::Rec709,
+	TransferFunction::Srgb,
+	YcbcrEncoding::Rec601,
+	Range::Limited
+};
+
+/**
+ * \brief A constant representing the sYCC color space, typically used for
+ * encoding JPEG images
+ */
+const ColorSpace ColorSpace::Sycc = {
+	Primaries::Rec709,
+	TransferFunction::Srgb,
+	YcbcrEncoding::Rec601,
+	Range::Full
+};
+
+/**
+ * \brief A constant representing the SMPTE170M color space
+ */
+const ColorSpace ColorSpace::Smpte170m = {
+	Primaries::Smpte170m,
+	TransferFunction::Rec709,
+	YcbcrEncoding::Rec601,
+	Range::Limited
+};
+
+/**
+ * \brief A constant representing the Rec.709 color space
+ */
+const ColorSpace ColorSpace::Rec709 = {
+	Primaries::Rec709,
+	TransferFunction::Rec709,
+	YcbcrEncoding::Rec709,
+	Range::Limited
+};
+
+/**
+ * \brief A constant representing the Rec.2020 color space
+ */
+const ColorSpace ColorSpace::Rec2020 = {
+	Primaries::Rec2020,
+	TransferFunction::Rec709,
+	YcbcrEncoding::Rec2020,
+	Range::Limited
+};
+
+/**
+ * \var ColorSpace::primaries
+ * \brief The color primaries of this color space
+ */
+
+/**
+ * \var ColorSpace::transferFunction
+ * \brief The transfer function used by this color space
+ */
+
+/**
+ * \var ColorSpace::ycbcrEncoding
+ * \brief The Y'CbCr encoding used by this color space
+ */
+
+/**
+ * \var ColorSpace::range
+ * \brief The pixel range used with by color space
+ */
+
+namespace {
+
+const std::array<std::pair<ColorSpace, const char *>, 6> colorSpaceNames = { {
+	{ ColorSpace::Raw, "RAW" },
+	{ ColorSpace::Srgb, "sRGB" },
+	{ ColorSpace::Sycc, "sYCC" },
+	{ ColorSpace::Smpte170m, "SMPTE170M" },
+	{ ColorSpace::Rec709, "Rec709" },
+	{ ColorSpace::Rec2020, "Rec2020" },
+} };
+
+const std::map<ColorSpace::Primaries, std::string> primariesNames = {
+	{ ColorSpace::Primaries::Raw, "RAW" },
+	{ ColorSpace::Primaries::Smpte170m, "SMPTE170M" },
+	{ ColorSpace::Primaries::Rec709, "Rec709" },
+	{ ColorSpace::Primaries::Rec2020, "Rec2020" },
+};
+
+const std::map<ColorSpace::TransferFunction, std::string> transferNames = {
+	{ ColorSpace::TransferFunction::Linear, "Linear" },
+	{ ColorSpace::TransferFunction::Srgb, "sRGB" },
+	{ ColorSpace::TransferFunction::Rec709, "Rec709" },
+};
+
+const std::map<ColorSpace::YcbcrEncoding, std::string> encodingNames = {
+	{ ColorSpace::YcbcrEncoding::None, "None" },
+	{ ColorSpace::YcbcrEncoding::Rec601, "Rec601" },
+	{ ColorSpace::YcbcrEncoding::Rec709, "Rec709" },
+	{ ColorSpace::YcbcrEncoding::Rec2020, "Rec2020" },
+};
+
+const std::map<ColorSpace::Range, std::string> rangeNames = {
+	{ ColorSpace::Range::Full, "Full" },
+	{ ColorSpace::Range::Limited, "Limited" },
+};
+
+} /* namespace */
+
+/**
  * \brief Assemble and return a readable string representation of the
  * ColorSpace
  *
- * If the color space matches a standard ColorSpace (such as ColorSpace::Jpeg)
- * then the short name of the color space ("JPEG") is returned. Otherwise
+ * If the color space matches a standard ColorSpace (such as ColorSpace::Sycc)
+ * then the short name of the color space ("sYCC") is returned. Otherwise
  * the four constituent parts of the ColorSpace are assembled into a longer
  * string.
  *
@@ -132,14 +264,6 @@ std::string ColorSpace::toString() const
 {
 	/* Print out a brief name only for standard color spaces. */
 
-	static const std::array<std::pair<ColorSpace, const char *>, 6> colorSpaceNames = { {
-		{ ColorSpace::Raw, "RAW" },
-		{ ColorSpace::Jpeg, "JPEG" },
-		{ ColorSpace::Srgb, "sRGB" },
-		{ ColorSpace::Smpte170m, "SMPTE170M" },
-		{ ColorSpace::Rec709, "Rec709" },
-		{ ColorSpace::Rec2020, "Rec2020" },
-	} };
 	auto it = std::find_if(colorSpaceNames.begin(), colorSpaceNames.end(),
 			       [this](const auto &item) {
 				       return *this == item.first;
@@ -148,28 +272,6 @@ std::string ColorSpace::toString() const
 		return std::string(it->second);
 
 	/* Assemble a name made of the constituent fields. */
-
-	static const std::map<Primaries, std::string> primariesNames = {
-		{ Primaries::Raw, "RAW" },
-		{ Primaries::Smpte170m, "SMPTE170M" },
-		{ Primaries::Rec709, "Rec709" },
-		{ Primaries::Rec2020, "Rec2020" },
-	};
-	static const std::map<TransferFunction, std::string> transferNames = {
-		{ TransferFunction::Linear, "Linear" },
-		{ TransferFunction::Srgb, "sRGB" },
-		{ TransferFunction::Rec709, "Rec709" },
-	};
-	static const std::map<YcbcrEncoding, std::string> encodingNames = {
-		{ YcbcrEncoding::None, "None" },
-		{ YcbcrEncoding::Rec601, "Rec601" },
-		{ YcbcrEncoding::Rec709, "Rec709" },
-		{ YcbcrEncoding::Rec2020, "Rec2020" },
-	};
-	static const std::map<Range, std::string> rangeNames = {
-		{ Range::Full, "Full" },
-		{ Range::Limited, "Limited" },
-	};
 
 	auto itPrimaries = primariesNames.find(primaries);
 	std::string primariesName =
@@ -213,88 +315,86 @@ std::string ColorSpace::toString(const std::optional<ColorSpace> &colorSpace)
 }
 
 /**
- * \var ColorSpace::primaries
- * \brief The color primaries of this color space
- */
-
-/**
- * \var ColorSpace::transferFunction
- * \brief The transfer function used by this color space
- */
-
-/**
- * \var ColorSpace::ycbcrEncoding
- * \brief The Y'CbCr encoding used by this color space
- */
-
-/**
- * \var ColorSpace::range
- * \brief The pixel range used with by color space
- */
-
-/**
- * \brief A constant representing a raw color space (from a sensor)
- */
-const ColorSpace ColorSpace::Raw = {
-	Primaries::Raw,
-	TransferFunction::Linear,
-	YcbcrEncoding::None,
-	Range::Full
-};
-
-/**
- * \brief A constant representing the JPEG color space used for
- * encoding JPEG images
- */
-const ColorSpace ColorSpace::Jpeg = {
-	Primaries::Rec709,
-	TransferFunction::Srgb,
-	YcbcrEncoding::Rec601,
-	Range::Full
-};
-
-/**
- * \brief A constant representing the sRGB color space
+ * \brief Construct a color space from a string
+ * \param[in] str The string
  *
- * This is identical to the JPEG color space except that the Y'CbCr
- * range is limited rather than full.
+ * The string \a str can contain the name of a well-known color space, or be
+ * made of the four color space components separated by a '/' character, ordered
+ * as
+ *
+ * \verbatim primaries '/' transferFunction '/' ycbcrEncoding '/' range \endverbatim
+ *
+ * Any failure to parse the string, either because it doesn't match the expected
+ * format, or because the one of the names isn't recognized, will cause this
+ * function to return std::nullopt.
+ *
+ * \return The ColorSpace corresponding to the string, or std::nullopt if the
+ * string doesn't describe a known color space
  */
-const ColorSpace ColorSpace::Srgb = {
-	Primaries::Rec709,
-	TransferFunction::Srgb,
-	YcbcrEncoding::Rec601,
-	Range::Limited
-};
+std::optional<ColorSpace> ColorSpace::fromString(const std::string &str)
+{
+	/* First search for a standard color space name match. */
+	auto itColorSpace = std::find_if(colorSpaceNames.begin(), colorSpaceNames.end(),
+					 [&str](const auto &item) {
+						 return str == item.second;
+					 });
+	if (itColorSpace != colorSpaceNames.end())
+		return itColorSpace->first;
 
-/**
- * \brief A constant representing the SMPTE170M color space
- */
-const ColorSpace ColorSpace::Smpte170m = {
-	Primaries::Smpte170m,
-	TransferFunction::Rec709,
-	YcbcrEncoding::Rec601,
-	Range::Limited
-};
+	/*
+	 * If not found, the string must contain the four color space
+	 * components separated by a '/' character.
+	 */
+	const auto &split = utils::split(str, "/");
+	std::vector<std::string> components{ split.begin(), split.end() };
 
-/**
- * \brief A constant representing the Rec.709 color space
- */
-const ColorSpace ColorSpace::Rec709 = {
-	Primaries::Rec709,
-	TransferFunction::Rec709,
-	YcbcrEncoding::Rec709,
-	Range::Limited
-};
+	if (components.size() != 4)
+		return std::nullopt;
 
-/**
- * \brief A constant representing the Rec.2020 color space
- */
-const ColorSpace ColorSpace::Rec2020 = {
-	Primaries::Rec2020,
-	TransferFunction::Rec709,
-	YcbcrEncoding::Rec2020,
-	Range::Limited
-};
+	ColorSpace colorSpace = ColorSpace::Raw;
+
+	/* Color primaries */
+	auto itPrimaries = std::find_if(primariesNames.begin(), primariesNames.end(),
+					[&components](const auto &item) {
+						return components[0] == item.second;
+					});
+	if (itPrimaries == primariesNames.end())
+		return std::nullopt;
+
+	colorSpace.primaries = itPrimaries->first;
+
+	/* Transfer function */
+	auto itTransfer = std::find_if(transferNames.begin(), transferNames.end(),
+				       [&components](const auto &item) {
+					       return components[1] == item.second;
+				       });
+	if (itTransfer == transferNames.end())
+		return std::nullopt;
+
+	colorSpace.transferFunction = itTransfer->first;
+
+	/* YCbCr encoding */
+	auto itEncoding = std::find_if(encodingNames.begin(), encodingNames.end(),
+				       [&components](const auto &item) {
+					       return components[2] == item.second;
+				       });
+	if (itEncoding == encodingNames.end())
+		return std::nullopt;
+
+	colorSpace.ycbcrEncoding = itEncoding->first;
+
+	/* Quantization range */
+	auto itRange = std::find_if(rangeNames.begin(), rangeNames.end(),
+				    [&components](const auto &item) {
+					    return components[3] == item.second;
+				    });
+	if (itRange == rangeNames.end())
+		return std::nullopt;
+
+	colorSpace.range = itRange->first;
+
+	return colorSpace;
+}
 
 /**
  * \brief Compare color spaces for equality

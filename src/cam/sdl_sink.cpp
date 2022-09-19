@@ -21,10 +21,10 @@
 
 #include "event_loop.h"
 #include "image.h"
-#ifdef HAVE_SDL_IMAGE
+#ifdef HAVE_LIBJPEG
 #include "sdl_texture_mjpg.h"
 #endif
-#include "sdl_texture_yuyv.h"
+#include "sdl_texture_yuv.h"
 
 using namespace libcamera;
 
@@ -62,13 +62,18 @@ int SDLSink::configure(const libcamera::CameraConfiguration &config)
 	rect_.h = cfg.size.height;
 
 	switch (cfg.pixelFormat) {
-#ifdef HAVE_SDL_IMAGE
+#ifdef HAVE_LIBJPEG
 	case libcamera::formats::MJPEG:
 		texture_ = std::make_unique<SDLTextureMJPG>(rect_);
 		break;
 #endif
+#if SDL_VERSION_ATLEAST(2, 0, 16)
+	case libcamera::formats::NV12:
+		texture_ = std::make_unique<SDLTextureNV12>(rect_, cfg.stride);
+		break;
+#endif
 	case libcamera::formats::YUYV:
-		texture_ = std::make_unique<SDLTextureYUYV>(rect_);
+		texture_ = std::make_unique<SDLTextureYUYV>(rect_, cfg.stride);
 		break;
 	default:
 		std::cerr << "Unsupported pixel format "
@@ -185,16 +190,23 @@ void SDLSink::renderBuffer(FrameBuffer *buffer)
 {
 	Image *image = mappedBuffers_[buffer].get();
 
-	/* \todo Implement support for multi-planar formats. */
-	const FrameMetadata::Plane &meta = buffer->metadata().planes()[0];
+	std::vector<Span<const uint8_t>> planes;
+	unsigned int i = 0;
 
-	Span<uint8_t> data = image->data(0);
-	if (meta.bytesused > data.size())
-		std::cerr << "payload size " << meta.bytesused
-			  << " larger than plane size " << data.size()
-			  << std::endl;
+	planes.reserve(buffer->metadata().planes().size());
 
-	texture_->update(data);
+	for (const FrameMetadata::Plane &meta : buffer->metadata().planes()) {
+		Span<uint8_t> data = image->data(i);
+		if (meta.bytesused > data.size())
+			std::cerr << "payload size " << meta.bytesused
+				  << " larger than plane size " << data.size()
+				  << std::endl;
+
+		planes.push_back(data);
+		i++;
+	}
+
+	texture_->update(planes);
 
 	SDL_RenderClear(renderer_);
 	SDL_RenderCopy(renderer_, texture_->get(), nullptr, nullptr);

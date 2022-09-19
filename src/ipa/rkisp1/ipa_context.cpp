@@ -87,6 +87,21 @@ namespace libcamera::ipa::rkisp1 {
  *
  * \var IPASessionConfiguration::awb.measureWindow
  * \brief AWB measure window
+ *
+ * \var IPASessionConfiguration::awb.enabled
+ * \brief Indicates if the AWB hardware is enabled and applies colour gains
+ *
+ * The AWB module of the ISP applies colour gains and computes statistics. It is
+ * enabled when the AWB algorithm is loaded, regardless of whether the algorithm
+ * operates in manual or automatic mode.
+ */
+
+/**
+ * \var IPASessionConfiguration::lsc
+ * \brief Lens Shading Correction configuration of the IPA
+ *
+ * \var IPASessionConfiguration::lsc.enabled
+ * \brief Indicates if the LSC hardware is enabled
  */
 
 /**
@@ -95,6 +110,9 @@ namespace libcamera::ipa::rkisp1 {
  *
  * \var IPASessionConfiguration::sensor.lineDuration
  * \brief Line duration in microseconds
+ *
+ * \var IPASessionConfiguration::sensor.size
+ * \brief Sensor output resolution
  */
 
 /**
@@ -131,6 +149,51 @@ namespace libcamera::ipa::rkisp1 {
  *
  * \var IPAFrameContext::awb.temperatureK
  * \brief Estimated color temperature
+ *
+ * \var IPAFrameContext::awb.autoEnabled
+ * \brief Whether the Auto White Balance algorithm is enabled
+ */
+
+/**
+ * \var IPAFrameContext::cproc
+ * \brief Context for the Color Processing algorithm
+ *
+ * \struct IPAFrameContext::cproc.brightness
+ * \brief Brightness level
+ *
+ * \var IPAFrameContext::cproc.contrast
+ * \brief Contrast level
+ *
+ * \var IPAFrameContext::cproc.saturation
+ * \brief Saturation level
+ *
+ * \var IPAFrameContext::cproc.updateParams
+ * \brief Indicates if ISP parameters need to be updated
+ */
+
+/**
+ * \var IPAFrameContext::dpf
+ * \brief Context for the Denoise Pre-Filter algorithm
+ *
+ * \var IPAFrameContext::dpf.denoise
+ * \brief Indicates if denoise is activated
+ *
+ * \var IPAFrameContext::dpf.updateParams
+ * \brief Indicates if ISP parameters need to be updated
+ */
+
+/**
+ * \var IPAFrameContext::filter
+ * \brief Context for the Filter algorithm
+ *
+ * \struct IPAFrameContext::filter.denoise
+ * \brief Denoising level
+ *
+ * \var IPAFrameContext::filter.sharpness
+ * \brief Sharpness level
+ *
+ * \var IPAFrameContext::filter.updateParams
+ * \brief Indicates if ISP parameters need to be updated
  */
 
 /**

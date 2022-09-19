@@ -38,8 +38,9 @@ private:
 	class Request
 	{
 	public:
-		Request(DRM::AtomicRequest *drmRequest, libcamera::Request *camRequest)
-			: drmRequest_(drmRequest), camRequest_(camRequest)
+		Request(std::unique_ptr<DRM::AtomicRequest> drmRequest,
+			libcamera::Request *camRequest)
+			: drmRequest_(std::move(drmRequest)), camRequest_(camRequest)
 		{
 		}
 
@@ -49,6 +50,11 @@ private:
 
 	int selectPipeline(const libcamera::PixelFormat &format);
 	int configurePipeline(const libcamera::PixelFormat &format);
+	bool testModeSet(DRM::FrameBuffer *drmBuffer,
+			 const libcamera::Rectangle &src,
+			 const libcamera::Rectangle &dst);
+	bool setupComposition(DRM::FrameBuffer *drmBuffer);
+
 	void requestComplete(DRM::AtomicRequest *request);
 
 	DRM::Device dev_;
@@ -61,6 +67,9 @@ private:
 	libcamera::PixelFormat format_;
 	libcamera::Size size_;
 	unsigned int stride_;
+
+	libcamera::Rectangle src_;
+	libcamera::Rectangle dst_;
 
 	std::map<libcamera::FrameBuffer *, std::unique_ptr<DRM::FrameBuffer>> buffers_;
 

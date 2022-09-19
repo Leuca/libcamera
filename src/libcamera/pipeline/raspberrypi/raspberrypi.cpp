@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
- * Copyright (C) 2019-2021, Raspberry Pi (Trading) Ltd.
+ * Copyright (C) 2019-2021, Raspberry Pi Ltd
  *
  * raspberrypi.cpp - Pipeline handler for Raspberry Pi devices
  */
@@ -90,13 +90,14 @@ PixelFormat mbusCodeToPixelFormat(unsigned int mbus_code,
 	return pix;
 }
 
-V4L2DeviceFormat toV4L2DeviceFormat(const V4L2SubdeviceFormat &format,
+V4L2DeviceFormat toV4L2DeviceFormat(const V4L2VideoDevice *dev,
+				    const V4L2SubdeviceFormat &format,
 				    BayerFormat::Packing packingReq)
 {
 	const PixelFormat pix = mbusCodeToPixelFormat(format.mbus_code, packingReq);
 	V4L2DeviceFormat deviceFormat;
 
-	deviceFormat.fourcc = V4L2PixelFormat::fromPixelFormat(pix);
+	deviceFormat.fourcc = dev->toV4L2PixelFormat(pix);
 	deviceFormat.size = format.size;
 	deviceFormat.colorSpace = format.colorSpace;
 	return deviceFormat;
@@ -364,7 +365,7 @@ CameraConfiguration::Status RPiCameraConfiguration::validate()
 	 * error means the platform can never run. Let's just print a warning
 	 * and continue regardless; the rotation is effectively set to zero.
 	 */
-	int32_t rotation = data_->sensor_->properties().get(properties::Rotation);
+	int32_t rotation = data_->sensor_->properties().get(properties::Rotation).value_or(0);
 	bool success;
 	Transform rotationTransform = transformFromRotation(rotation, &success);
 	if (!success)
@@ -422,15 +423,15 @@ CameraConfiguration::Status RPiCameraConfiguration::validate()
 			 * Calculate the best sensor mode we can use based on
 			 * the user request.
 			 */
+			V4L2VideoDevice *unicam = data_->unicam_[Unicam::Image].dev();
 			const PixelFormatInfo &info = PixelFormatInfo::info(cfg.pixelFormat);
 			unsigned int bitDepth = info.isValid() ? info.bitsPerPixel : defaultRawBitDepth;
 			V4L2SubdeviceFormat sensorFormat = findBestFormat(data_->sensorFormats_, cfg.size, bitDepth);
 			BayerFormat::Packing packing = BayerFormat::Packing::CSI2;
 			if (info.isValid() && !info.packed)
 				packing = BayerFormat::Packing::None;
-			V4L2DeviceFormat unicamFormat = toV4L2DeviceFormat(sensorFormat,
-									   packing);
-			int ret = data_->unicam_[Unicam::Image].dev()->tryFormat(&unicamFormat);
+			V4L2DeviceFormat unicamFormat = toV4L2DeviceFormat(unicam, sensorFormat, packing);
+			int ret = unicam->tryFormat(&unicamFormat);
 			if (ret)
 				return Invalid;
 
@@ -516,14 +517,14 @@ CameraConfiguration::Status RPiCameraConfiguration::validate()
 
 		V4L2VideoDevice::Formats fmts = dev->formats();
 
-		if (fmts.find(V4L2PixelFormat::fromPixelFormat(cfgPixFmt)) == fmts.end()) {
+		if (fmts.find(dev->toV4L2PixelFormat(cfgPixFmt)) == fmts.end()) {
 			/* If we cannot find a native format, use a default one. */
 			cfgPixFmt = formats::NV12;
 			status = Adjusted;
 		}
 
 		V4L2DeviceFormat format;
-		format.fourcc = V4L2PixelFormat::fromPixelFormat(cfg.pixelFormat);
+		format.fourcc = dev->toV4L2PixelFormat(cfg.pixelFormat);
 		format.size = cfg.size;
 		format.colorSpace = cfg.colorSpace;
 
@@ -592,11 +593,11 @@ CameraConfiguration *PipelineHandlerRPi::generateConfiguration(Camera *camera,
 			fmts = data->isp_[Isp::Output0].dev()->formats();
 			pixelFormat = formats::NV12;
 			/*
-			 * Still image codecs usually expect the JPEG color space.
+			 * Still image codecs usually expect the sYCC color space.
 			 * Even RGB codecs will be fine as the RGB we get with the
-			 * JPEG color space is the same as sRGB.
+			 * sYCC color space is the same as sRGB.
 			 */
-			colorSpace = ColorSpace::Jpeg;
+			colorSpace = ColorSpace::Sycc;
 			/* Return the largest sensor resolution. */
 			size = sensorSize;
 			bufferCount = 1;
@@ -627,7 +628,7 @@ CameraConfiguration *PipelineHandlerRPi::generateConfiguration(Camera *camera,
 		case StreamRole::Viewfinder:
 			fmts = data->isp_[Isp::Output0].dev()->formats();
 			pixelFormat = formats::ARGB8888;
-			colorSpace = ColorSpace::Jpeg;
+			colorSpace = ColorSpace::Sycc;
 			size = { 800, 600 };
 			bufferCount = 4;
 			outCount++;
@@ -751,8 +752,9 @@ int PipelineHandlerRPi::configure(Camera *camera, CameraConfiguration *config)
 	if (ret)
 		return ret;
 
-	V4L2DeviceFormat unicamFormat = toV4L2DeviceFormat(sensorFormat, packing);
-	ret = data->unicam_[Unicam::Image].dev()->setFormat(&unicamFormat);
+	V4L2VideoDevice *unicam = data->unicam_[Unicam::Image].dev();
+	V4L2DeviceFormat unicamFormat = toV4L2DeviceFormat(unicam, sensorFormat, packing);
+	ret = unicam->setFormat(&unicamFormat);
 	if (ret)
 		return ret;
 
@@ -783,7 +785,7 @@ int PipelineHandlerRPi::configure(Camera *camera, CameraConfiguration *config)
 		RPi::Stream *stream = i == maxIndex ? &data->isp_[Isp::Output0]
 						    : &data->isp_[Isp::Output1];
 
-		V4L2PixelFormat fourcc = V4L2PixelFormat::fromPixelFormat(cfg.pixelFormat);
+		V4L2PixelFormat fourcc = stream->dev()->toV4L2PixelFormat(cfg.pixelFormat);
 		format.size = cfg.size;
 		format.fourcc = fourcc;
 		format.colorSpace = cfg.colorSpace;
@@ -826,13 +828,15 @@ int PipelineHandlerRPi::configure(Camera *camera, CameraConfiguration *config)
 	 * statistics coming from the hardware.
 	 */
 	if (!output0Set) {
+		V4L2VideoDevice *dev = data->isp_[Isp::Output0].dev();
+
 		maxSize = Size(320, 240);
 		format = {};
 		format.size = maxSize;
-		format.fourcc = V4L2PixelFormat::fromPixelFormat(formats::YUV420);
+		format.fourcc = dev->toV4L2PixelFormat(formats::YUV420);
 		/* No one asked for output, so the color space doesn't matter. */
-		format.colorSpace = ColorSpace::Jpeg;
-		ret = data->isp_[Isp::Output0].dev()->setFormat(&format);
+		format.colorSpace = ColorSpace::Sycc;
+		ret = dev->setFormat(&format);
 		if (ret) {
 			LOG(RPI, Error)
 				<< "Failed to set default format on ISP Output0: "
@@ -856,18 +860,20 @@ int PipelineHandlerRPi::configure(Camera *camera, CameraConfiguration *config)
 	 * colour denoise will not run.
 	 */
 	if (!output1Set) {
+		V4L2VideoDevice *dev = data->isp_[Isp::Output1].dev();
+
 		V4L2DeviceFormat output1Format;
 		constexpr Size maxDimensions(1200, 1200);
 		const Size limit = maxDimensions.boundedToAspectRatio(format.size);
 
 		output1Format.size = (format.size / 2).boundedTo(limit).alignedDownTo(2, 2);
 		output1Format.colorSpace = format.colorSpace;
-		output1Format.fourcc = V4L2PixelFormat::fromPixelFormat(formats::YUV420);
+		output1Format.fourcc = dev->toV4L2PixelFormat(formats::YUV420);
 
 		LOG(RPI, Debug) << "Setting ISP Output1 (internal) to "
 				<< output1Format;
 
-		ret = data->isp_[Isp::Output1].dev()->setFormat(&output1Format);
+		ret = dev->setFormat(&output1Format);
 		if (ret) {
 			LOG(RPI, Error) << "Failed to set format on ISP Output1: "
 					<< ret;
@@ -1717,15 +1723,15 @@ void RPiCameraData::statsMetadataComplete(uint32_t bufferId, const ControlList &
 	 * Inform the sensor of the latest colour gains if it has the
 	 * V4L2_CID_NOTIFY_GAINS control (which means notifyGainsUnity_ is set).
 	 */
-	if (notifyGainsUnity_ && controls.contains(libcamera::controls::ColourGains)) {
-		libcamera::Span<const float> colourGains = controls.get(libcamera::controls::ColourGains);
+	const auto &colourGains = controls.get(libcamera::controls::ColourGains);
+	if (notifyGainsUnity_ && colourGains) {
 		/* The control wants linear gains in the order B, Gb, Gr, R. */
 		ControlList ctrls(sensor_->controls());
 		std::array<int32_t, 4> gains{
-			static_cast<int32_t>(colourGains[1] * *notifyGainsUnity_),
+			static_cast<int32_t>((*colourGains)[1] * *notifyGainsUnity_),
 			*notifyGainsUnity_,
 			*notifyGainsUnity_,
-			static_cast<int32_t>(colourGains[0] * *notifyGainsUnity_)
+			static_cast<int32_t>((*colourGains)[0] * *notifyGainsUnity_)
 		};
 		ctrls.set(V4L2_CID_NOTIFY_GAINS, Span<const int32_t>{ gains });
 
@@ -2052,8 +2058,9 @@ Rectangle RPiCameraData::scaleIspCrop(const Rectangle &ispCrop) const
 
 void RPiCameraData::applyScalerCrop(const ControlList &controls)
 {
-	if (controls.contains(controls::ScalerCrop)) {
-		Rectangle nativeCrop = controls.get<Rectangle>(controls::ScalerCrop);
+	const auto &scalerCrop = controls.get<Rectangle>(controls::ScalerCrop);
+	if (scalerCrop) {
+		Rectangle nativeCrop = *scalerCrop;
 
 		if (!nativeCrop.width || !nativeCrop.height)
 			nativeCrop = { 0, 0, 1, 1 };
@@ -2091,7 +2098,7 @@ void RPiCameraData::fillRequestMetadata(const ControlList &bufferControls,
 					Request *request)
 {
 	request->metadata().set(controls::SensorTimestamp,
-				bufferControls.get(controls::SensorTimestamp));
+				bufferControls.get(controls::SensorTimestamp).value_or(0));
 
 	request->metadata().set(controls::ScalerCrop, scalerCrop_);
 }
@@ -2160,16 +2167,12 @@ bool RPiCameraData::findMatchingBuffers(BayerFrame &bayerFrame, FrameBuffer *&em
 	if (bayerQueue_.empty())
 		return false;
 
-	/* Start with the front of the bayer queue. */
-	bayerFrame = std::move(bayerQueue_.front());
-	bayerQueue_.pop();
-
 	/*
 	 * Find the embedded data buffer with a matching timestamp to pass to
 	 * the IPA. Any embedded buffers with a timestamp lower than the
 	 * current bayer buffer will be removed and re-queued to the driver.
 	 */
-	uint64_t ts = bayerFrame.buffer->metadata().timestamp;
+	uint64_t ts = bayerQueue_.front().buffer->metadata().timestamp;
 	embeddedBuffer = nullptr;
 	while (!embeddedQueue_.empty()) {
 		FrameBuffer *b = embeddedQueue_.front();
@@ -2189,9 +2192,22 @@ bool RPiCameraData::findMatchingBuffers(BayerFrame &bayerFrame, FrameBuffer *&em
 	}
 
 	if (!embeddedBuffer && sensorMetadata_) {
+		if (embeddedQueue_.empty()) {
+			/*
+			 * If the embedded buffer queue is empty, wait for the next
+			 * buffer to arrive - dequeue ordering may send the image
+			 * buffer first.
+			 */
+			LOG(RPI, Debug) << "Waiting for next embedded buffer.";
+			return false;
+		}
+
 		/* Log if there is no matching embedded data buffer found. */
 		LOG(RPI, Debug) << "Returning bayer frame without a matching embedded buffer.";
 	}
+
+	bayerFrame = std::move(bayerQueue_.front());
+	bayerQueue_.pop();
 
 	return true;
 }

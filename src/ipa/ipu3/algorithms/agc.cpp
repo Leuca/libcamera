@@ -229,7 +229,7 @@ void Agc::computeExposure(IPAContext &context, IPAFrameContext *frameContext,
 
 	/*
 	 * Filter the exposure.
-	 * \todo: estimate if we need to desaturate
+	 * \todo estimate if we need to desaturate
 	 */
 	exposureValue = filterExposure(exposureValue);
 
@@ -362,6 +362,8 @@ void Agc::process(IPAContext &context, [[maybe_unused]] IPAFrameContext *frameCo
 	computeExposure(context, frameContext, yGain, iqMeanGain);
 	frameCount_++;
 }
+
+REGISTER_IPA_ALGORITHM(Agc, "Agc")
 
 } /* namespace ipa::ipu3::algorithms */
 

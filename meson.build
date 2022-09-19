@@ -44,7 +44,7 @@ endif
 
 common_arguments = [
     '-Wshadow',
-    '-include', 'config.h',
+    '-include', meson.current_build_dir() / 'config.h',
 ]
 
 c_arguments = []
@@ -122,7 +122,7 @@ libcamera_includes = include_directories('include')
 py_modules = []
 
 # Libraries used by multiple components
-liblttng = cc.find_library('lttng-ust', required : get_option('tracing'))
+liblttng = dependency('lttng-ust', required : get_option('tracing'))
 
 # Pipeline handlers
 #
@@ -173,7 +173,7 @@ py_mod.find_installation('python3', modules: py_modules)
 ## Summarise Configurations
 summary({
             'Enabled pipelines': pipelines,
-            'Enabled IPA modules': ipa_modules,
+            'Enabled IPA modules': enabled_ipa_modules,
             'Tracing support': tracing_enabled,
             'Android support': android_enabled,
             'GStreamer support': gst_enabled,

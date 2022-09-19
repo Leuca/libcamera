@@ -633,13 +633,9 @@ int V4L2VideoDevice::open()
 		<< "Opened device " << caps_.bus_info() << ": "
 		<< caps_.driver() << ": " << caps_.card();
 
-	ret = getFormat(&format_);
-	if (ret) {
-		LOG(V4L2, Error) << "Failed to get format";
+	ret = initFormats();
+	if (ret)
 		return ret;
-	}
-
-	formatInfo_ = &PixelFormatInfo::info(format_.fourcc);
 
 	return 0;
 }
@@ -726,7 +722,24 @@ int V4L2VideoDevice::open(SharedFD handle, enum v4l2_buf_type type)
 		<< "Opened device " << caps_.bus_info() << ": "
 		<< caps_.driver() << ": " << caps_.card();
 
-	ret = getFormat(&format_);
+	ret = initFormats();
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+int V4L2VideoDevice::initFormats()
+{
+	const std::vector<V4L2PixelFormat> &deviceFormats = enumPixelformats(0);
+	if (deviceFormats.empty()) {
+		LOG(V4L2, Error) << "Failed to initialize device formats";
+		return -EINVAL;
+	}
+
+	pixelFormats_ = { deviceFormats.begin(), deviceFormats.end() };
+
+	int ret = getFormat(&format_);
 	if (ret) {
 		LOG(V4L2, Error) << "Failed to get format";
 		return ret;
@@ -940,7 +953,12 @@ int V4L2VideoDevice::trySetFormatMultiplane(V4L2DeviceFormat *format, bool set)
 	pix->pixelformat = format->fourcc;
 	pix->num_planes = format->planesCount;
 	pix->field = V4L2_FIELD_NONE;
-	fromColorSpace(format->colorSpace, *pix);
+	if (format->colorSpace) {
+		fromColorSpace(format->colorSpace, *pix);
+
+		if (caps_.isVideoCapture())
+			pix->flags |= V4L2_PIX_FMT_FLAG_SET_CSC;
+	}
 
 	ASSERT(pix->num_planes <= std::size(pix->plane_fmt));
 
@@ -1010,7 +1028,12 @@ int V4L2VideoDevice::trySetFormatSingleplane(V4L2DeviceFormat *format, bool set)
 	pix->pixelformat = format->fourcc;
 	pix->bytesperline = format->planes[0].bpl;
 	pix->field = V4L2_FIELD_NONE;
-	fromColorSpace(format->colorSpace, *pix);
+	if (format->colorSpace) {
+		fromColorSpace(format->colorSpace, *pix);
+
+		if (caps_.isVideoCapture())
+			pix->flags |= V4L2_PIX_FMT_FLAG_SET_CSC;
+	}
 
 	ret = ioctl(set ? VIDIOC_S_FMT : VIDIOC_TRY_FMT, &v4l2Format);
 	if (ret) {
@@ -1987,6 +2010,40 @@ V4L2VideoDevice::fromEntityName(const MediaDevice *media,
 		return nullptr;
 
 	return std::make_unique<V4L2VideoDevice>(mediaEntity);
+}
+
+/**
+ * \brief Convert \a PixelFormat to a V4L2PixelFormat supported by the device
+ * \param[in] pixelFormat The PixelFormat to convert
+ *
+ * Convert \a pixelformat to a V4L2 FourCC that is known to be supported by
+ * the video device.
+ *
+ * A V4L2VideoDevice may support different V4L2 pixel formats that map the same
+ * PixelFormat. This is the case of the contiguous and non-contiguous variants
+ * of multiplanar formats, and with the V4L2 MJPEG and JPEG pixel formats.
+ * Converting a PixelFormat to a V4L2PixelFormat may thus have multiple answers.
+ *
+ * This function converts the \a pixelFormat using the list of V4L2 pixel
+ * formats that the V4L2VideoDevice supports. This guarantees that the returned
+ * V4L2PixelFormat will be valid for the device. If multiple matches are still
+ * possible, contiguous variants are preferred. If the \a pixelFormat is not
+ * supported by the device, the function returns an invalid V4L2PixelFormat.
+ *
+ * \return The V4L2PixelFormat corresponding to \a pixelFormat if supported by
+ * the device, or an invalid V4L2PixelFormat otherwise
+ */
+V4L2PixelFormat V4L2VideoDevice::toV4L2PixelFormat(const PixelFormat &pixelFormat) const
+{
+	const std::vector<V4L2PixelFormat> &v4l2PixelFormats =
+		V4L2PixelFormat::fromPixelFormat(pixelFormat);
+
+	for (const V4L2PixelFormat &v4l2Format : v4l2PixelFormats) {
+		if (pixelFormats_.count(v4l2Format))
+			return v4l2Format;
+	}
+
+	return {};
 }
 
 /**
