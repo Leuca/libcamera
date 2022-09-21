@@ -3,6 +3,5 @@
 /build/
 /patches/
 
-*.patch
 *.pyc
 __pycache__/

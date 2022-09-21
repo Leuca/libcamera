@@ -1,0 +1,362 @@
+From patchwork Sat Sep  3 21:33:29 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Christian Rauch <Rauch.Christian@gmx.de>
+X-Patchwork-Id: 17292
+Return-Path: <libcamera-devel-bounces@lists.libcamera.org>
+X-Original-To: parsemail@patchwork.libcamera.org
+Delivered-To: parsemail@patchwork.libcamera.org
+Received: from lancelot.ideasonboard.com (lancelot.ideasonboard.com
+	[92.243.16.209])
+	by patchwork.libcamera.org (Postfix) with ESMTPS id F2960C327D
+	for <parsemail@patchwork.libcamera.org>;
+	Sat,  3 Sep 2022 21:33:36 +0000 (UTC)
+Received: from lancelot.ideasonboard.com (localhost [IPv6:::1])
+	by lancelot.ideasonboard.com (Postfix) with ESMTP id E9FB862046;
+	Sat,  3 Sep 2022 23:33:35 +0200 (CEST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=libcamera.org;
+	s=mail; t=1662240815;
+	bh=3CL1St6IP9I3ecDiVWoYhncZQLbjo5vZVQCDu4LIk0I=;
+	h=To:Date:Subject:List-Id:List-Unsubscribe:List-Archive:List-Post:
+	List-Help:List-Subscribe:From:Reply-To:From;
+	b=I3Y6XyeRamgZhLnq++jD9AFKNVtapMK3R58cwUJe+9SdDmSvwSw8E8DNMmG0Wl8QX
+	/iOfw/CEMxpTEW9HXOrf2P+fwOsTVfDrL2nLLKPxF5Lgc3L6xuFWS99lcCYMNgbLn1
+	OvlEyOqGg1vYQFbOTBPmzdWEVEcumcoLzAGX3CWOF3qxgGFbxQ78IHi69PK/ClVqlL
+	BSJAJNTNBOoqEaLZFJJcNBnIXnwTBwGjDro5lEQAkxzf1FW9JSxeSBWJ60CP8LGH+C
+	tVcQsNWpDn18RxcChTPF18Lh3eT/+LrU+cv0kjKP5rD47y7EGPe9ZykpkspSERqhCw
+	OI++gtj4+yJtw==
+Received: from mout.gmx.net (mout.gmx.net [212.227.17.21])
+	by lancelot.ideasonboard.com (Postfix) with ESMTPS id 632DD62033
+	for <libcamera-devel@lists.libcamera.org>;
+	Sat,  3 Sep 2022 23:33:33 +0200 (CEST)
+Authentication-Results: lancelot.ideasonboard.com; dkim=pass (1024-bit key;
+	unprotected) header.d=gmx.net header.i=@gmx.net
+	header.b="YkvlKVxy"; dkim-atps=neutral
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=gmx.net;
+	s=badeba3b8450; t=1662240812;
+	bh=3CL1St6IP9I3ecDiVWoYhncZQLbjo5vZVQCDu4LIk0I=;
+	h=X-UI-Sender-Class:From:To:Cc:Subject:Date;
+	b=YkvlKVxy/2aChGC1sC4tvOfB35eu++qjmuTrSEEbUrXa5mxycmFKSljGGgH9huoWR
+	eAGGvtJcqnXBvfaKfEYG79qSXKuGWanlh6VitCDGMnnXWAS5f9+ILuU4J4rk2tlW3X
+	b/UI8GhwGgCBP4m+rqqWS5w2NKhrxJcgv3D+sOcM=
+X-UI-Sender-Class: 01bb95c1-4bf8-414a-932a-4f6e2808ef9c
+Received: from voyager ([88.152.184.103]) by mail.gmx.net (mrgmx105
+	[212.227.17.168]) with ESMTPSA (Nemesis) id 1N3KTy-1pTT941eHi-010PJv;
+	Sat, 03 Sep 2022 23:33:32 +0200
+To: libcamera-devel@lists.libcamera.org
+Date: Sat,  3 Sep 2022 23:33:29 +0200
+Message-Id: <20220903213330.213117-1-Rauch.Christian@gmx.de>
+X-Mailer: git-send-email 2.34.1
+MIME-Version: 1.0
+X-Provags-ID: V03:K1:8lGgn5vhXtyU7KdwHQV9YJPEcPJKtP5SWTT5VoemkCsfoKel7YA
+	xoy0CFkIyzAeuZNLojI7NdhxQgALr0y89JQNWfe3mHIrq7B45MmGP0srdE1cmeGdIcXS5v3
+	T4moPxGaWXUNSwKNPiAjoWRBCbOLm96RWTjKrRW+HKFU/dzd9olb0ywWjmJvzjFyYelwkYU
+	6Q3hQidoxvWMhIT9t1Rww==
+X-Spam-Flag: NO
+X-UI-Out-Filterresults: notjunk:1; V03:K0:lL6jft9njFg=:zrk8kW1poATsr5sOjHtwZT
+	AOHyznCo1RLHYHk3LI8C50y/QrDZDsJtT8ca4L1HWfxrzdozpw6RSYxCJTjhAE8YsbtQWYy26
+	v/XTfoP9WPF3vnuyw3vwk0jiV6hi85aJ9mCbAxxwp6jPLjp1l2L7Jru8ZsGJjLjG/WI/tXH6P
+	w8qwQgcLa05MkPVFuNpjKt3J12upW0kUc+et3zbfouzdtmFJ3Yp6pAkVdkJ3FCFkmTdkgQola
+	p6kDIT1+3yBEXhLtynFRATmQ3NbTgrxkXMZ6d8ohKtMorlVkO147aZeAqXoEibS7kYCpPeecv
+	fCaKjw2V4FMNJsAOiF5Q4gkp7n6cibefAXdIsg+pJCmKu49QkG4Cg2i5hN3G2d3VCO83UfP2o
+	yLOGPw4bVAHLOkocImm/OzzMV32LPF5A//wMhUte9rwhhzvo6LDIGz4b2BtoBOiBTk8DgqXcw
+	kgHWd1xC2zCTq68B2pbBQ1aH8oXdh++/sfOFbIsN/2HRIJRjeGo8pIXACp54u9mPGuFM2LMWi
+	o9VeQ8Ab5Yfzr6rk0jhuESxuJ1uprlDG27joS/GK608a1s5q6xSz4kCzjg76JVa054cT3NTb8
+	M1eUmHlB/5cefpbGtijEnZMUPBUXMZ9LXTQ7qxAjjRXG+yEnaYAiQ//41hVxwAYC0F/pC9aSx
+	efO4LzZAj6DBCNrmu8/wAFSy1RqDgX6L37xNf8fNQ1ptnIb6ntmUCSwypwyTqwNrLvUC85a7M
+	lZ1zkV4r/+p2kIGPuKjyl1SBWSTWQxhw4C+m5Dts6HB0WZLV6WH5qsNMkPzQXGb2JoHTHKnZY
+	SzAwzZKKU/i/pUmZZvAxG1dhDhFh0NeKvHFWLBruC5Zux2ik/CKFZHftlT+X843O6aXbDdiF3
+	kIkjUtAd8T+CZLhQc1V8y4eWYQwBsbS9AGb8cyvGBYTm9fvA44O0nOLQM1bgKhcHxZqFA7gIQ
+	4lajH7wCJM6xcVNktXmpOWy/l1u8SG4vwGQ31AHpJxvTh59jDaXEuOBTNzVmolrFZldoyNmeZ
+	CAA7leUeMSZJ23McxBGNl6v4BKUzNGmEbj2eEb5QVMiEipgyrgg+zyZvQ5xYtUx7IHDama6dH
+	uOX/lUcILUcaOkdsydQUOVokFGnBpXtijnged1bMazh7XJ8txzfnMXAnwYHq341Qmpoel+JG+
+	1/F9/QO4LsiDjglbzVcFPPfLRp
+Subject: [libcamera-devel] [PATCH v4 1/2] libcamera: control_serializer:
+	store/load all ControlValue types
+X-BeenThere: libcamera-devel@lists.libcamera.org
+X-Mailman-Version: 2.1.29
+Precedence: list
+List-Id: <libcamera-devel.lists.libcamera.org>
+List-Unsubscribe: <https://lists.libcamera.org/options/libcamera-devel>,
+	<mailto:libcamera-devel-request@lists.libcamera.org?subject=unsubscribe>
+List-Archive: <https://lists.libcamera.org/pipermail/libcamera-devel/>
+List-Post: <mailto:libcamera-devel@lists.libcamera.org>
+List-Help: <mailto:libcamera-devel-request@lists.libcamera.org?subject=help>
+List-Subscribe: <https://lists.libcamera.org/listinfo/libcamera-devel>,
+	<mailto:libcamera-devel-request@lists.libcamera.org?subject=subscribe>
+X-Patchwork-Original-From: Christian Rauch via libcamera-devel
+	<libcamera-devel@lists.libcamera.org>
+From: Christian Rauch <Rauch.Christian@gmx.de>
+Reply-To: Christian Rauch <Rauch.Christian@gmx.de>
+Errors-To: libcamera-devel-bounces@lists.libcamera.org
+Sender: "libcamera-devel" <libcamera-devel-bounces@lists.libcamera.org>
+
+The min/max/def ControlValue of a ControlInfo can take arbitrary types that
+are different from each other and different from the ControlId type.
+The serialiser serialises these ControlValue separately by their type but
+does not store the type. The deserialiser assumes that ControlValue types
+match the ControlId type. If this is not the case, deserialisation will try
+to deserialise values of the wrong type.
+
+Fix this by serialising each of the min/max/def ControlValue's ControlType
+and storing it just before the serialised ControlValue.
+
+Fixes: https://bugs.libcamera.org/show_bug.cgi?id=137
+
+Signed-off-by: Christian Rauch <Rauch.Christian@gmx.de>
+Tested-by: Paul Elder <paul.elder@ideasonboard.com>
+Reviewed-by: Paul Elder <paul.elder@ideasonboard.com>
+Reviewed-by: Umang Jain <umang.jain@ideasonboard.com>
+---
+ .../libcamera/internal/control_serializer.h   |  4 +--
+ src/libcamera/control_serializer.cpp          | 28 +++++++++----------
+ 2 files changed, 15 insertions(+), 17 deletions(-)
+
+--
+2.34.1
+
+diff --git a/include/libcamera/internal/control_serializer.h b/include/libcamera/internal/control_serializer.h
+index 99e57fee..a38ca6b0 100644
+--- a/include/libcamera/internal/control_serializer.h
++++ b/include/libcamera/internal/control_serializer.h
+@@ -47,9 +47,9 @@ private:
+ 	static void store(const ControlValue &value, ByteStreamBuffer &buffer);
+ 	static void store(const ControlInfo &info, ByteStreamBuffer &buffer);
+
+-	ControlValue loadControlValue(ControlType type, ByteStreamBuffer &buffer,
++	ControlValue loadControlValue(ByteStreamBuffer &buffer,
+ 				      bool isArray = false, unsigned int count = 1);
+-	ControlInfo loadControlInfo(ControlType type, ByteStreamBuffer &buffer);
++	ControlInfo loadControlInfo(ByteStreamBuffer &buffer);
+
+ 	unsigned int serial_;
+ 	unsigned int serialSeed_;
+diff --git a/src/libcamera/control_serializer.cpp b/src/libcamera/control_serializer.cpp
+index e87d2362..0cf719bd 100644
+--- a/src/libcamera/control_serializer.cpp
++++ b/src/libcamera/control_serializer.cpp
+@@ -144,7 +144,7 @@ void ControlSerializer::reset()
+
+ size_t ControlSerializer::binarySize(const ControlValue &value)
+ {
+-	return value.data().size_bytes();
++	return sizeof(ControlType) + value.data().size_bytes();
+ }
+
+ size_t ControlSerializer::binarySize(const ControlInfo &info)
+@@ -195,6 +195,8 @@ size_t ControlSerializer::binarySize(const ControlList &list)
+ void ControlSerializer::store(const ControlValue &value,
+ 			      ByteStreamBuffer &buffer)
+ {
++	const ControlType type = value.type();
++	buffer.write(&type);
+ 	buffer.write(value.data());
+ }
+
+@@ -379,11 +381,13 @@ int ControlSerializer::serialize(const ControlList &list,
+ 	return 0;
+ }
+
+-ControlValue ControlSerializer::loadControlValue(ControlType type,
+-						 ByteStreamBuffer &buffer,
++ControlValue ControlSerializer::loadControlValue(ByteStreamBuffer &buffer,
+ 						 bool isArray,
+ 						 unsigned int count)
+ {
++	ControlType type;
++	buffer.read(&type);
++
+ 	ControlValue value;
+
+ 	value.reserve(type, isArray, count);
+@@ -392,15 +396,11 @@ ControlValue ControlSerializer::loadControlValue(ControlType type,
+ 	return value;
+ }
+
+-ControlInfo ControlSerializer::loadControlInfo(ControlType type,
+-					       ByteStreamBuffer &b)
++ControlInfo ControlSerializer::loadControlInfo(ByteStreamBuffer &b)
+ {
+-	if (type == ControlTypeString)
+-		type = ControlTypeInteger32;
+-
+-	ControlValue min = loadControlValue(type, b);
+-	ControlValue max = loadControlValue(type, b);
+-	ControlValue def = loadControlValue(type, b);
++	ControlValue min = loadControlValue(b);
++	ControlValue max = loadControlValue(b);
++	ControlValue def = loadControlValue(b);
+
+ 	return ControlInfo(min, max, def);
+ }
+@@ -513,7 +513,7 @@ ControlInfoMap ControlSerializer::deserialize<ControlInfoMap>(ByteStreamBuffer &
+ 		}
+
+ 		/* Create and store the ControlInfo. */
+-		ctrls.emplace(controlId, loadControlInfo(type, values));
++		ctrls.emplace(controlId, loadControlInfo(values));
+ 	}
+
+ 	/*
+@@ -624,10 +624,8 @@ ControlList ControlSerializer::deserialize<ControlList>(ByteStreamBuffer &buffer
+ 			return {};
+ 		}
+
+-		ControlType type = static_cast<ControlType>(entry->type);
+ 		ctrls.set(entry->id,
+-			  loadControlValue(type, values, entry->is_array,
+-					   entry->count));
++			  loadControlValue(values, entry->is_array, entry->count));
+ 	}
+
+ 	return ctrls;
+
+From patchwork Sat Sep  3 21:33:30 2022
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Christian Rauch <Rauch.Christian@gmx.de>
+X-Patchwork-Id: 17291
+Return-Path: <libcamera-devel-bounces@lists.libcamera.org>
+X-Original-To: parsemail@patchwork.libcamera.org
+Delivered-To: parsemail@patchwork.libcamera.org
+Received: from lancelot.ideasonboard.com (lancelot.ideasonboard.com
+	[92.243.16.209])
+	by patchwork.libcamera.org (Postfix) with ESMTPS id 2E502C0DA4
+	for <parsemail@patchwork.libcamera.org>;
+	Sat,  3 Sep 2022 21:33:36 +0000 (UTC)
+Received: from lancelot.ideasonboard.com (localhost [IPv6:::1])
+	by lancelot.ideasonboard.com (Postfix) with ESMTP id 5B19162042;
+	Sat,  3 Sep 2022 23:33:35 +0200 (CEST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=libcamera.org;
+	s=mail; t=1662240815;
+	bh=gKiKom5Nle+pQr+GU5OV9C9zRSsgI3HhlA91zS/pjKA=;
+	h=To:Date:In-Reply-To:References:Subject:List-Id:List-Unsubscribe:
+	List-Archive:List-Post:List-Help:List-Subscribe:From:Reply-To:
+	From;
+	b=rkuWokGG0pvafsHFMXVUibq8NAoDvba/cUv6BF/VFtnUtrmM+AyAOI0hgjQ7G8h3n
+	j3xD2BbUWZHLwzFEjdR7ZUqetc0u7WssqM4gGzYoFwJeTDmXvKxFOQpl4TUCTIvwHD
+	IfSnT29gN/52IuKOi7wiFazhft72KRvgHfKZ64Kjctw8UhWSoGpFrNz743g2bB3wja
+	8IYu6ha7BB0wAlfu+UXs2sPi0h3s2prwlCyrtHF7pJ9TqiyCt1sLBzIpvLikBcMcLe
+	I4cBMHQxHyvEEuJ9Fzuvv60zcM7dRHRLQADLRHFBhhNSVsr46Ey1XwP6lQN3l8x+GF
+	BrRE0u/IA6eRA==
+Received: from mout.gmx.net (mout.gmx.net [212.227.17.22])
+	by lancelot.ideasonboard.com (Postfix) with ESMTPS id 65E5062037
+	for <libcamera-devel@lists.libcamera.org>;
+	Sat,  3 Sep 2022 23:33:33 +0200 (CEST)
+Authentication-Results: lancelot.ideasonboard.com; dkim=pass (1024-bit key;
+	unprotected) header.d=gmx.net header.i=@gmx.net
+	header.b="DVV+osAG"; dkim-atps=neutral
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=gmx.net;
+	s=badeba3b8450; t=1662240812;
+	bh=gKiKom5Nle+pQr+GU5OV9C9zRSsgI3HhlA91zS/pjKA=;
+	h=X-UI-Sender-Class:From:To:Cc:Subject:Date:In-Reply-To:References;
+	b=DVV+osAGd+7Lmy/uNuKv0UlCEXD/FkHYkThyOZNF7c1l5vgmZ9nB/2tTA3WGIZSSK
+	1T0ntjMCZHaB3ITWlprFhmE7bSNv9a5dlbRn8eXX7jNNnbBfyJz9nf05K+mVeWNjL2
+	BOUajrnomfH0gsHs4oqKUBvFj7kre0/oFWVNBKRo=
+X-UI-Sender-Class: 01bb95c1-4bf8-414a-932a-4f6e2808ef9c
+Received: from voyager ([88.152.184.103]) by mail.gmx.net (mrgmx105
+	[212.227.17.168]) with ESMTPSA (Nemesis) id 1N79yG-1pSviK2REy-017Xvl;
+	Sat, 03 Sep 2022 23:33:32 +0200
+To: libcamera-devel@lists.libcamera.org
+Date: Sat,  3 Sep 2022 23:33:30 +0200
+Message-Id: <20220903213330.213117-2-Rauch.Christian@gmx.de>
+X-Mailer: git-send-email 2.34.1
+In-Reply-To: <20220903213330.213117-1-Rauch.Christian@gmx.de>
+References: <20220903213330.213117-1-Rauch.Christian@gmx.de>
+MIME-Version: 1.0
+X-Provags-ID: V03:K1:Zm9ZCWzWZSs86C6Q2Ziaq4M0NSYXvg/+cFAWXvNF0GJ2gAW6egK
+	EfjCmn19T+gyP9GD5j/Iaz5IH7CgORAos5UofDdgoYPErbdo6otW5UawSZeJRftk8AyKP2W
+	cBWQZiaqKV4rnQuVW+23dX//x47Dvt0JpdPYUyDdnSBfM0X9zmxVcD8o5A4nI+SDsMXuQIy
+	t+WzsGMaW6XooMeIyce8w==
+X-Spam-Flag: NO
+X-UI-Out-Filterresults: notjunk:1; V03:K0:wIcRAzePm+g=:QsSvGYwM6bXRvOHaNeUril
+	wjWdsB01a0uimAKpJlJmj1I6x4CE1blrvG2nloUtibrZoQkkWbSRFDSaVWJzqo17YYFWZ+dBL
+	XG0MwgHuBW8xOhF2YZd0f/zto9chlMozrE4WiQkVtFNQY8Jgzi6sTHLuqS4Pz+jNjVOrkD3EH
+	wCVl4nxC5rngmfTBuoBYNr2K04SvecwvH+/0pH677vY4hW0ufPJf+QEqvGkBiDgoJ5vbJEBEH
+	/AiwrrPCPStLm2TCmw5+1N1wF/WJvrxufPAoTEm8ykHzXuKibIBY5ip93Ih0BlO5mv0cT9ZoO
+	nr6oOfIcXlIS+eOHj/ttKbtY540r/NlTnneBdK+pYxWgcuuWdL+CtIxkvO2cmgNXwB1m3+5w7
+	0zRO0H0Ry+0rNfYvW9mVJZBgZCzksRPSQLIOMqkwBfnaWoyk1+i/eRPlxYEp3BA0lEaWgi/pZ
+	/4T02yBAR0kO4Qb1SifzZPyGJoqFH08QNaXNqwB6pZK7NHxjVR+eT8Zgy5JVNOOe2RxSbA5ic
+	uAAIdV44zkK/PHv4UQLsPx4SD0pLLErzXZ2I/uMtaVIU/pRbyjwzyH6WFyV7zhAYruYg931WN
+	dx2EbDFtMV9Jxbki8KUX7LP50wVorROIWrZYeX6h9bIp0PSZl0HuSxkUFtZ76awZ3Mf0y/Jij
+	qdHJSjTEmhhO5wyrqi4Nj5Nk3hfttW9zxmw4CoJszyHMa0bfXeYKgF0W4uNUFN0+4ccE14TFh
+	/mmhQVPgMOmsrRT6pgLYRT6YezByNnbnZj3swJKAI8AaFS/ZDipZH9G8PEMRVvRMKt2VBzI1x
+	9ilW4PJhA4dlBeFJ5hXMxpGMn4h982ccOWSFDbeSGMRgKVhHAvW1+VTmXnlE+b8O0K/RfvEMG
+	6pJTR52je1QDNATF2vG7fwlEojLDKyvpm55KJQmLMz7sZTzBB6Vax/dqpL+b0qKv7Xz2gnG6B
+	5DcBlUeAOKsQ927eF6CcT+W/+3Mp+EAmi20TFlAnKuF3Pp7rBct0AVBbRAtEn4LCR7ug/ukkp
+	rC8gnuSAwt0HVTY5netzVF3jj09s6T3ej1qJcGnjIZk9TDBMvONUUqft3Pc3yxk87TpX/u9II
+	ROfr1u2/0Q2YFf0vHN7BEXpYCBG1OPvrKG1Djne70s+ELRZJQsWykOfPV4kteo82xSuVSMX4Y
+	IF5IvNwGFg9qJcfoX4UOjnbL4q
+Subject: [libcamera-devel] [PATCH v4 2/2] libcamera: controls: initialise
+	control info to ControlTypeNone by default
+X-BeenThere: libcamera-devel@lists.libcamera.org
+X-Mailman-Version: 2.1.29
+Precedence: list
+List-Id: <libcamera-devel.lists.libcamera.org>
+List-Unsubscribe: <https://lists.libcamera.org/options/libcamera-devel>,
+	<mailto:libcamera-devel-request@lists.libcamera.org?subject=unsubscribe>
+List-Archive: <https://lists.libcamera.org/pipermail/libcamera-devel/>
+List-Post: <mailto:libcamera-devel@lists.libcamera.org>
+List-Help: <mailto:libcamera-devel-request@lists.libcamera.org?subject=help>
+List-Subscribe: <https://lists.libcamera.org/listinfo/libcamera-devel>,
+	<mailto:libcamera-devel-request@lists.libcamera.org?subject=subscribe>
+X-Patchwork-Original-From: Christian Rauch via libcamera-devel
+	<libcamera-devel@lists.libcamera.org>
+From: Christian Rauch <Rauch.Christian@gmx.de>
+Reply-To: Christian Rauch <Rauch.Christian@gmx.de>
+Errors-To: libcamera-devel-bounces@lists.libcamera.org
+Sender: "libcamera-devel" <libcamera-devel-bounces@lists.libcamera.org>
+
+The default ControlInfo constructor allows partially initialising the
+min/max/def values. Uninitialised values are assigned to 0 by default.
+This implicit initialisation makes it impossible to distinguish between
+an uninitialised and an explicitly 0-initialised ControlValue.
+
+Default construct the ControlValue in the ControlInfo default contructor to
+explicitly represent uninitialised values by the ControlTypeNone type.
+
+Signed-off-by: Christian Rauch <Rauch.Christian@gmx.de>
+Reviewed-by: Paul Elder <paul.elder@ideasonboard.com>
+Reviewed-by: Umang Jain <umang.jain@ideasonboard.com>
+---
+ include/libcamera/controls.h   | 6 +++---
+ test/controls/control_info.cpp | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+--
+2.34.1
+
+diff --git a/include/libcamera/controls.h b/include/libcamera/controls.h
+index ebc168fc..38d0a3e8 100644
+--- a/include/libcamera/controls.h
++++ b/include/libcamera/controls.h
+@@ -268,9 +268,9 @@ private:
+ class ControlInfo
+ {
+ public:
+-	explicit ControlInfo(const ControlValue &min = 0,
+-			     const ControlValue &max = 0,
+-			     const ControlValue &def = 0);
++	explicit ControlInfo(const ControlValue &min = {},
++			     const ControlValue &max = {},
++			     const ControlValue &def = {});
+ 	explicit ControlInfo(Span<const ControlValue> values,
+ 			     const ControlValue &def = {});
+ 	explicit ControlInfo(std::set<bool> values, bool def);
+diff --git a/test/controls/control_info.cpp b/test/controls/control_info.cpp
+index 2827473b..56b4101f 100644
+--- a/test/controls/control_info.cpp
++++ b/test/controls/control_info.cpp
+@@ -26,8 +26,8 @@ protected:
+ 		 */
+ 		ControlInfo brightness;
+
+-		if (brightness.min().get<int32_t>() != 0 ||
+-		    brightness.max().get<int32_t>() != 0) {
++		if (brightness.min().type() != ControlType::ControlTypeNone ||
++		    brightness.max().type() != ControlType::ControlTypeNone) {
+ 			cout << "Invalid control range for Brightness" << endl;
+ 			return TestFail;
+ 		}

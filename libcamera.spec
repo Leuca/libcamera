@@ -1,6 +1,6 @@
 Name:           {{{ git_dir_name }}}
 Version:        {{{ git_dir_version lead=0.0 follow=0 }}}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        A library to support complex camera ISPs
 
 License:        LGPLv2+ and GPLv2
@@ -42,6 +42,8 @@ BuildRequires:  pkgconfig(Qt5Gui)
 BuildRequires:  pkgconfig(Qt5Widgets)
 
 Source:         {{{ git_dir_pack }}}
+
+Patch0:        libcamera-devel-v4-1-2-libcamera-control_serializer-store-load-all-ControlValue-types.patch 
 
 %description
 libcamera is a library that deals with heavy hardware image processing
@@ -119,6 +121,8 @@ Tool that simplifies the usage of the libcamera v4l2 compatibility layer
 
 %prep
 {{{ git_dir_setup_macro }}}
+
+%autopatch -p1
 
 %build
 # cam/qcam crash with LTO
